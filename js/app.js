@@ -25,12 +25,16 @@ const state = {
 const $ = (sel) => document.querySelector(sel);
 
 async function boot() {
-  const [airport, spotFile] = await Promise.all([
+  const [airport, spotFile, config] = await Promise.all([
     fetch("data/airport.json").then((r) => r.json()),
     fetch("data/spots.json").then((r) => r.json()),
+    // Running without a proxy is a valid configuration, so a missing or broken
+    // config file must not stop the page from loading.
+    fetch("data/config.json").then((r) => r.json()).catch(() => ({})),
   ]);
   state.airport = airport;
   state.spots = spotFile.spots;
+  state.proxy = config.adsbProxy || "";
   state.tracker = new RunwayTracker(airport);
 
   applyLanguage();
@@ -85,7 +89,7 @@ function applyLanguage() {
 async function refresh() {
   const { lat, lon } = state.airport.arp;
   try {
-    const { aircraft, source } = await fetchAircraft(lat, lon, FETCH_RADIUS_NM);
+    const { aircraft, source } = await fetchAircraft(lat, lon, FETCH_RADIUS_NM, { proxy: state.proxy });
     state.tracker.observe(aircraft);
     state.liveAircraft = aircraft;
     state.source = source;

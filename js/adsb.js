@@ -55,11 +55,15 @@ function normalise(raw) {
 
 // Tries each network in turn, so one being down or rate-limiting us is not an
 // outage. Rejects only when every source fails.
-export async function fetchAircraft(lat, lon, radiusNm, { timeoutMs = 8000 } = {}) {
+export async function fetchAircraft(lat, lon, radiusNm, { timeoutMs = 8000, proxy = "" } = {}) {
   const errors = [];
   const la = lat.toFixed(4), lo = lon.toFixed(4), nm = Math.round(radiusNm);
 
-  for (const source of SOURCES) {
+  const sources = proxy
+    ? [{ name: "proxy", url: () => `${proxy.replace(/\/$/, "")}/?lat=${la}&lon=${lo}&radius=${nm}` }, ...SOURCES]
+    : SOURCES;
+
+  for (const source of sources) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
@@ -72,7 +76,10 @@ export async function fetchAircraft(lat, lon, radiusNm, { timeoutMs = 8000 } = {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const body = await res.json();
       const raw = body.ac || body.aircraft || [];
-      return { aircraft: normalise(raw), source: source.name, fetchedAt: Date.now() };
+      // The proxy reports which upstream it actually used, which is more
+      // useful in the status line than the word "proxy".
+      const label = source.name === "proxy" && body.source ? `proxy → ${body.source}` : source.name;
+      return { aircraft: normalise(raw), source: label, fetchedAt: Date.now() };
     } catch (err) {
       errors.push(`${source.name}: ${describe(err)}`);
     } finally {

@@ -33,7 +33,7 @@
   <div id="out"></div>
   <p class="env" id="env"></p>
 </main>
-<script>
+<script type="module">
 // Ben Gurion, 20 nm.
 const LAT = 32.0094, LON = 34.8828, R = 20;
 
@@ -51,6 +51,16 @@ const ENDPOINTS = [
 for (const extra of new URLSearchParams(location.search).getAll("url")) {
   ENDPOINTS.push(["custom: " + extra, extra]);
 }
+
+// Include whatever proxy the site is configured to use, so this page tests the
+// same path the app takes.
+try {
+  const cfg = await (await fetch("data/config.json")).json();
+  if (cfg.adsbProxy) {
+    const base = cfg.adsbProxy.replace(/\/$/, "");
+    ENDPOINTS.unshift(["configured proxy", `${base}/?lat=${LAT}&lon=${LON}&radius=${R}`]);
+  }
+} catch {}
 
 const results = [];
 
@@ -130,12 +140,19 @@ async function run() {
     `;
   }
 
-  const working = results.filter((r) => r.cls === "ok").length;
+  const working = results.filter((r) => r.cls === "ok");
+  const directWorking = working.filter((r) => r.name !== "configured proxy").length;
+  const proxyWorks = working.some((r) => r.name === "configured proxy");
+
   const banner = document.createElement("div");
   banner.className = "card";
-  banner.innerHTML = working
-    ? `<p class="verdict ok">${working} endpoint(s) work from this browser - the site can run without a proxy.</p>`
-    : `<p class="verdict bad">No endpoint works from this browser.</p><p class="detail">If they all say BLOCKED BY CORS, the fix is a small server-side proxy. If they say UNREACHABLE, something on this network or in this region is blocking the hosts - try mobile data instead of Wi-Fi to tell those apart.</p>`;
+  if (proxyWorks && !directWorking) {
+    banner.innerHTML = `<p class="verdict ok">The proxy works - the site has live data.</p><p class="detail">The direct endpoints being blocked is expected: the community networks send no CORS header, which is the reason the proxy exists.</p>`;
+  } else if (directWorking) {
+    banner.innerHTML = `<p class="verdict ok">${directWorking} direct endpoint(s) work from this browser - the site can run without a proxy.</p>`;
+  } else {
+    banner.innerHTML = `<p class="verdict bad">No endpoint works from this browser.</p><p class="detail">If they all say BLOCKED BY CORS, the fix is a server-side proxy - see the README. If they say UNREACHABLE, something on this network or in this region is blocking the hosts; try mobile data instead of Wi-Fi to tell those apart.</p>`;
+  }
   out.prepend(banner);
 }
 
