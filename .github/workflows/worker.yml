@@ -41,13 +41,23 @@ jobs:
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          # Without an account id, wrangler calls /memberships to discover the
+          # account - a call a token scoped only to Workers Scripts cannot
+          # make. Supplying it skips that lookup entirely.
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # The action defaults to wrangler 3, which is well out of date and
+          # gives vaguer authentication errors than 4 does.
+          wranglerVersion: "4"
 
       # Deliberately not gated on the token: hitting the proxy needs no
       # credentials, and its response - including the upstream detail in a 502
       # - is the most useful diagnostic available, from a runner that can
       # actually reach the internet.
       - name: Verify the proxy answers
+        # Runs even when the deploy step fails: the Worker already deployed is
+        # what the site actually uses, so its health is worth reporting
+        # regardless of whether this run managed to update it.
+        if: always()
         run: |
           PROXY=$(python3 -c "import json; print(json.load(open('data/config.json')).get('adsbProxy',''))")
           if [ -z "$PROXY" ]; then
