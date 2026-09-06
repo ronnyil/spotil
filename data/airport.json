@@ -1,0 +1,88 @@
+{
+  "icao": "LLBG",
+  "iata": "TLV",
+  "name": "Ben Gurion International",
+  "arp": {
+    "lat": 32.00944,
+    "lon": 34.88278
+  },
+  "elevationFt": 135,
+  "magVar": 4.6,
+  "_magVarNote": "Degrees EAST. Runway designators are magnetic; ADS-B track is true. trueBearing = magneticBearing + magVar.",
+  "runways": [
+    {
+      "pair": "12/30",
+      "lengthM": 3112,
+      "ends": [
+        {
+          "id": "12",
+          "magBearing": 120
+        },
+        {
+          "id": "30",
+          "magBearing": 300
+        }
+      ]
+    },
+    {
+      "pair": "08/26",
+      "lengthM": 4062,
+      "ends": [
+        {
+          "id": "08",
+          "magBearing": 80
+        },
+        {
+          "id": "26",
+          "magBearing": 260
+        }
+      ]
+    },
+    {
+      "pair": "03/21",
+      "lengthM": 2772,
+      "ends": [
+        {
+          "id": "03",
+          "magBearing": 30
+        },
+        {
+          "id": "21",
+          "magBearing": 210
+        }
+      ],
+      "note": "Shortest and least active runway - mainly cargo and charter traffic."
+    }
+  ],
+  "timezone": "Asia/Jerusalem",
+  "typicalPattern": {
+    "_note": "Fallback only, used when live traffic is too thin to read (quiet hours, or every ADS-B source down). From Moti Kaplan's post: departures are mostly runway 26; the landing runway tracks the time of day because aircraft land into the wind. Live observation always overrides this.",
+    "takeoffDefault": "26",
+    "landingByLocalHour": [
+      {
+        "fromHour": 5,
+        "toHour": 10,
+        "runway": "12",
+        "label": "morning"
+      },
+      {
+        "fromHour": 10,
+        "toHour": 16,
+        "runway": "21",
+        "label": "late morning to afternoon"
+      },
+      {
+        "fromHour": 16,
+        "toHour": 22,
+        "runway": "30",
+        "label": "evening"
+      },
+      {
+        "fromHour": 22,
+        "toHour": 5,
+        "runway": null,
+        "label": "night - no published pattern, live data only"
+      }
+    ]
+  }
+}
