@@ -35,8 +35,16 @@ const LIMITS = {
   // voteMaxAgeMs.
   voteHalfLifeMs: 8 * 60 * 1000,
   voteMaxAgeMs: 20 * 60 * 1000,
-  // Total decayed vote weight at which we call the reading fully trustworthy.
-  saturationWeight: 3,
+  // Total decayed vote weight at which a reading is called fully trustworthy.
+  // Deliberately low. One aircraft aligned within a few degrees of a runway,
+  // on its extended centreline, descending through 3000 ft at 9 nm is not a
+  // coincidence - it is an arrival on that runway. Requiring three such
+  // sightings meant falling back to the time-of-day pattern exactly when
+  // traffic is thin, which is when that pattern is least reliable and when
+  // being wrong is most expensive: runways 21 and 30 are on opposite sides of
+  // the field. A weak single sighting still fails to clear the confidence
+  // threshold on its own, so this trades no accuracy for far better coverage.
+  saturationWeight: 1.5,
 };
 
 export function trueBearing(magBearing, magVar) {
