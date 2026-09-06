@@ -1,4 +1,4 @@
 {
   "_comment": "Set adsbProxy to the URL of your deployed Cloudflare Worker (see README). The community ADS-B networks send no CORS header, so without a proxy the site falls back to the time-of-day prediction. Leave it empty to run without one.",
-  "adsbProxy": ""
+  "adsbProxy": "https://proud-pine-7d99.r-n-lipkin.workers.dev"
 }
