@@ -45,14 +45,42 @@ The original idea was to read runway usage off FR24. Two problems:
    redistribution.
 
 So the app reads the same underlying ADS-B signal directly from community networks that
-are keyless, CORS-enabled and free for non-commercial use, tried in order so one being
-down is not an outage:
+are keyless and free for non-commercial use, tried in order so one being down is not an
+outage:
 
-[airplanes.live](https://airplanes.live) → [adsb.fi](https://adsb.fi) → [adsb.lol](https://adsb.lol)
+[airplanes.live](https://airplanes.live) → [adsb.lol](https://adsb.lol) → [adsb.fi](https://adsb.fi)
 
-If you ever put this behind a domain with real traffic, move the polling to a small
-serverless function so there is one shared poll rather than one per visitor, and read
-each network's non-commercial terms first.
+## The proxy, and why it is needed
+
+**None of these networks sends an `Access-Control-Allow-Origin` header**, so a browser
+will not let the page read their responses, however reachable they are. This was
+confirmed from a real phone against the deployed site: all six endpoints answered a
+`no-cors` probe in 45–128 ms while every normal request failed — reachable, but blocked
+by policy. No client-side change can work around that.
+
+`worker/adsb-proxy.js` is a Cloudflare Worker that sits in front of them, adds the CORS
+header, and caches each distinct query for 10 seconds. The cache matters beyond
+latency: it means a hundred spotters using the site produce a trickle of upstream
+requests rather than a hundred polls every 20 seconds, which is what these volunteer-run
+networks ask for. Requests are clamped to a bounding box around Israel and to 50 nm so
+it cannot be used as a general-purpose ADS-B proxy.
+
+### Deploying it
+
+Free, no card, about five minutes. No API keys or environment variables.
+
+1. Sign up at [dash.cloudflare.com](https://dash.cloudflare.com).
+2. **Compute (Workers) → Create → Start with Hello World! → Deploy.**
+3. Open the new Worker → **Edit code**, replace the contents with
+   `worker/adsb-proxy.js` from this repo, and **Deploy**.
+4. Copy the Worker URL (`https://<name>.<subdomain>.workers.dev`).
+5. Put it in `data/config.json` as `adsbProxy`, commit, push. Pages redeploys itself.
+
+Check it with `https://<your-site>/debug.html`, which tests the configured proxy
+alongside the direct endpoints.
+
+Leaving `adsbProxy` empty is valid — the site then falls back to the time-of-day
+prediction and says so, rather than breaking.
 
 ## Spot data
 
@@ -101,13 +129,16 @@ index.html          markup and page shell
 assets/style.css    styling, light and dark
 js/geo.js           bearings, distances, cross/along-track maths
 js/sun.js           solar position and light quality
-js/adsb.js          live aircraft, with source fallback
+js/adsb.js          live aircraft, via the proxy with direct fallback
 js/runway.js        runway-in-use detection and vote tracking
 js/recommend.js     runway → ranked spots
 js/i18n.js          EN/HE strings
 js/app.js           UI wiring
 data/airport.json   runway geometry, magnetic variation, time-of-day pattern
 data/spots.json     spotting locations
+data/config.json    proxy URL
+debug.html          data source diagnostics
+worker/             the Cloudflare Worker proxy
 ```
 
 ## Running it
