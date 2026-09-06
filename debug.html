@@ -19,24 +19,36 @@
   .ok { color: #4ade80; } .bad { color: #f87171; } .warn { color: #fbbf24; }
   .detail { font-size: 13px; opacity: .85; margin: 4px 0 0; }
   pre { background: rgba(128,128,128,.14); padding: 10px; border-radius: 8px; overflow-x: auto; font-size: 12px; max-height: 220px; }
-  .env { font-size: 12.5px; opacity: .75; }
+  .env { font-size: 12.5px; opacity: .75; word-break: break-all; }
+  .stamp {
+    border: 1px solid rgba(128,128,128,.35); border-radius: 10px;
+    padding: 10px 14px; margin-bottom: 14px; font-size: 13.5px;
+  }
+  .stamp p { margin: 2px 0; word-break: break-all; }
+  .stamp strong { opacity: .7; font-weight: 600; }
 </style>
 </head>
 <body>
 <main>
   <h1>Data source diagnostics</h1>
   <p class="sub">Tests every ADS-B endpoint the site can use, from this browser, and separates "blocked by CORS" from "host unreachable".</p>
+
+  <div class="stamp">
+    <p><strong>Build</strong> <span id="build">…</span></p>
+    <p id="config">…</p>
+  </div>
+
   <div class="row">
     <button id="run">Run tests</button>
     <button id="copy" class="sec">Copy results</button>
+    <button id="hard" class="sec">Force refresh</button>
   </div>
-  <p class="env" id="config"></p>
   <div id="out"></div>
   <p class="env" id="env"></p>
 </main>
 <script type="module">
 // Bumped whenever this page changes, so a stale copy is obvious on sight.
-const BUILD = "2026-09-06d";
+const BUILD = "2026-09-06f";
 
 // Ben Gurion, 20 nm.
 const LAT = 32.0094, LON = 34.8828, R = 20;
@@ -92,7 +104,7 @@ async function probe(name, url) {
       entry.verdict = "HTTP error";
       entry.cls = "bad";
       entry.detail = `Reachable and CORS is fine, but returned HTTP ${res.status} ${res.statusText}. Likely needs an API key now, or the path changed.`;
-      try { entry.body = (await res.text()).slice(0, 400); } catch {}
+      try { entry.body = (await res.text()).slice(0, 800); } catch {}
       return entry;
     }
     // Parse separately from the transport: a response that arrived but is not
@@ -191,17 +203,25 @@ document.getElementById("copy").addEventListener("click", async () => {
     `config: ${configNote}`,
     `origin: ${location.origin}`,
     `ua: ${navigator.userAgent}`,
-    ...results.map((r) =>
-      `${r.name} | ${r.verdict} | status=${r.status ?? "-"} | ${r.ms}ms | err=${r.error ?? "-"} | nocors=${r.noCorsError ?? "-"}`
-    ),
+    ...results.flatMap((r) => [
+      `${r.name} | ${r.verdict} | status=${r.status ?? "-"} | ${r.ms}ms | err=${r.error ?? "-"} | nocors=${r.noCorsError ?? "-"}`,
+      r.body ? `    body: ${r.body.replace(/\s+/g, " ").slice(0, 500)}` : null,
+    ].filter(Boolean)),
   ].join("\n");
   try { await navigator.clipboard.writeText(text); alert("Copied - paste it back to Claude."); }
   catch { prompt("Copy this:", text); }
 });
 
-document.getElementById("env").textContent =
-  `build ${BUILD} · origin ${location.origin} · ${navigator.userAgent}`;
+document.getElementById("build").textContent = BUILD;
 document.getElementById("config").textContent = configNote;
+document.getElementById("env").textContent = `${location.origin} · ${navigator.userAgent}`;
+
+// GitHub Pages serves HTML with a ten-minute cache, so a stale copy of this
+// very page is a real possibility. A changing query string is a guaranteed
+// cache miss, which no amount of pull-to-refresh reliably is on mobile.
+document.getElementById("hard").addEventListener("click", () => {
+  location.href = `${location.pathname}?cb=${Date.now()}`;
+});
 run();
 </script>
 </body>

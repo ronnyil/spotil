@@ -83,6 +83,8 @@ export default {
 
     const errors = [];
     for (const upstream of UPSTREAMS) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 8000);
       try {
         const res = await fetch(upstream.url(la, lo, nm), {
           headers: {
@@ -90,10 +92,14 @@ export default {
             // These networks ask that clients identify themselves.
             "User-Agent": "spotil/1.0 (+https://github.com/ronnyil/spotil)",
           },
-          signal: AbortSignal.timeout(8000),
+          signal: controller.signal,
         });
         if (!res.ok) {
-          errors.push(`${upstream.name}: HTTP ${res.status}`);
+          // Include a snippet of the body: an upstream refusing a datacenter
+          // IP usually says so there rather than in the status alone.
+          let hint = "";
+          try { hint = ` - ${(await res.text()).replace(/\s+/g, " ").slice(0, 120)}`; } catch {}
+          errors.push(`${upstream.name}: HTTP ${res.status}${hint}`);
           continue;
         }
         const body = await res.json();
@@ -107,7 +113,9 @@ export default {
         if (cache) await cache.put(cacheKey, out.clone());
         return out;
       } catch (err) {
-        errors.push(`${upstream.name}: ${err.message}`);
+        errors.push(`${upstream.name}: ${err.name}: ${err.message}`);
+      } finally {
+        clearTimeout(timer);
       }
     }
 
