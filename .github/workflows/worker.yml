@@ -1,0 +1,79 @@
+name: Deploy Worker
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "worker/**"
+      - "wrangler.toml"
+      - "data/config.json"
+      - ".github/workflows/worker.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: worker-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The repository is public and the site is useful without a Worker, so a
+      # missing token is a normal state rather than a failure - skip cleanly
+      # instead of showing a red build to anyone who forks this.
+      - id: guard
+        env:
+          TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "No CLOUDFLARE_API_TOKEN secret set - skipping deploy, verification still runs."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.guard.outputs.configured == 'true'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      # Deliberately not gated on the token: hitting the proxy needs no
+      # credentials, and its response - including the upstream detail in a 502
+      # - is the most useful diagnostic available, from a runner that can
+      # actually reach the internet.
+      - name: Verify the proxy answers
+        run: |
+          PROXY=$(python3 -c "import json; print(json.load(open('data/config.json')).get('adsbProxy',''))")
+          if [ -z "$PROXY" ]; then
+            echo "No adsbProxy set in data/config.json - nothing to verify."
+            exit 0
+          fi
+          PROXY="${PROXY%/}"
+          echo "GET $PROXY/?lat=32.0094&lon=34.8828&radius=20"
+          # curl leaves the output file untouched when the connection fails, so
+          # clear it first or a stale body from an earlier run gets reported
+          # alongside the new failure.
+          rm -f /tmp/resp.json
+          # %{http_code} is already 000 on a connection failure; adding another
+          # fallback here concatenates and yields nonsense like 000000.
+          code=$(curl -sS -o /tmp/resp.json -w '%{http_code}' \
+            "$PROXY/?lat=32.0094&lon=34.8828&radius=20" || true)
+          echo "HTTP ${code:-000}"
+          echo "--- response body ---"
+          head -c 2000 /tmp/resp.json 2>/dev/null || echo "(no response body)"
+          echo
+          echo "---------------------"
+          if [ "$code" = "200" ]; then
+            python3 -c "import json; d=json.load(open('/tmp/resp.json')); print('OK:', len(d.get('ac',[])), 'aircraft via', d.get('source'))"
+          else
+            # A 502 is the Worker's own "no upstream reachable". Failing here
+            # is the point: a deployed but useless proxy should be loud.
+            echo "::error::Proxy returned HTTP $code - see the response body above"
+            exit 1
+          fi
