@@ -1,8 +1,8 @@
 import { fetchAircraft } from "./adsb.js";
-import { RunwayTracker, runwayEnds } from "./runway.js";
+import { RunwayTracker } from "./runway.js";
 import { resolveRunways, rankSpots, navLinks } from "./recommend.js";
-import { destinationPoint, haversineNm } from "./geo.js";
 import { STRINGS, t } from "./i18n.js";
+import { renderDiagram } from "./diagram.js";
 
 const REFRESH_MS = 20000;
 const FETCH_RADIUS_NM = 20;
@@ -18,8 +18,6 @@ const state = {
   lastFetch: null,
   source: null,
   error: null,
-  map: null,
-  layers: {},
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -42,7 +40,6 @@ async function boot() {
 
   applyLanguage();
   wireControls();
-  initMap();
 
   await refresh();
   setInterval(refresh, REFRESH_MS);
@@ -313,60 +310,31 @@ function requestLocation() {
   );
 }
 
-function initMap() {
-  // Leaflet is a progressive enhancement - without it the page still answers
-  // the question, so drop the empty map frame rather than showing a blank box.
-  if (typeof L === "undefined") {
-    document.querySelector(".mapwrap").hidden = true;
-    return;
-  }
-  const { lat, lon } = state.airport.arp;
-  state.map = L.map("map", { scrollWheelZoom: false }).setView([lat, lon], 11);
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 18,
-    attribution: "&copy; OpenStreetMap",
-  }).addTo(state.map);
-
-  // Extended centrelines, so it is obvious where the aircraft will be.
-  for (const end of runwayEnds(state.airport)) {
-    const far = destinationPoint(state.airport.arp, end.trueBearing, 8);
-    L.polyline([[lat, lon], [far.lat, far.lon]], {
-      color: "#94a3b8", weight: 1, dashArray: "4 6", interactive: false,
-    }).addTo(state.map).bindTooltip(end.id, { permanent: false });
-  }
-
-  state.layers.spots = L.layerGroup().addTo(state.map);
-  state.layers.aircraft = L.layerGroup().addTo(state.map);
-}
-
 function renderMap() {
-  if (!state.map || !state.resolved) return;
+  const host = $("#diagram");
+  const r = state.resolved;
+  if (!host || !r) return;
+
+  // Show the spot for whichever operation the user is looking at, so the
+  // diagram and the recommendation below it always agree.
   const op = state.operation;
-  const runway = state.resolved[op].runway;
-  const ranked = rankSpots(state.spots, state.airport, runway, op, { from: state.userPosition });
-  const topId = ranked[0]?.spot.id;
+  const runway = r[op].runway;
+  const top = rankSpots(state.spots, state.airport, runway, op, {
+    from: state.userPosition,
+  })[0];
 
-  state.layers.spots.clearLayers();
-  for (const spot of state.spots) {
-    const active = ranked.some((r) => r.spot.id === spot.id);
-    const isTop = spot.id === topId;
-    L.circleMarker([spot.lat, spot.lon], {
-      radius: isTop ? 10 : 6,
-      color: isTop ? "#0b6bcb" : active ? "#1a7f52" : "#94a3b8",
-      weight: isTop ? 3 : 2,
-      fillOpacity: active ? 0.7 : 0.25,
-    })
-      .bindPopup(`<strong>${spot.name[state.lang] || spot.name.en}</strong>`)
-      .addTo(state.layers.spots);
-  }
+  const { svg, legend } = renderDiagram({
+    airport: state.airport,
+    landingRunway: r.landing.runway,
+    takeoffRunway: r.takeoff.runway,
+    spot: top?.spot ?? null,
+    strings: STRINGS[state.lang],
+  });
 
-  state.layers.aircraft.clearLayers();
-  for (const ac of state.liveAircraft || []) {
-    if (haversineNm(state.airport.arp, ac) > 15) continue;
-    L.circleMarker([ac.lat, ac.lon], {
-      radius: 3, color: "#f59e0b", weight: 1, fillOpacity: 0.9, interactive: false,
-    }).addTo(state.layers.aircraft);
-  }
+  const rows = legend
+    .map((item) => `<li class="lg-${item.kind}"><span class="key"></span>${item.text}</li>`)
+    .join("");
+  host.innerHTML = svg + (rows ? `<ul class="diagram-legend">${rows}</ul>` : "");
 }
 
 boot().catch((err) => {

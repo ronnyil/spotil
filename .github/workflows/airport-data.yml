@@ -1,0 +1,44 @@
+name: Fetch airport geometry
+
+# One-shot data gathering. The runway diagram currently draws all three runways
+# crossing at the airport reference point, because only bearings and lengths
+# were known - the true positions were never available. OpenStreetMap has the
+# real geometry; this prints it so it can be baked into data/airport.json.
+#
+# Runs from CI because the development environment has no outbound network
+# access to Overpass.
+
+on:
+  push:
+    paths: [".github/workflows/airport-data.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Query Overpass for LLBG runways
+        run: |
+          set -o pipefail
+          Q='[out:json][timeout:25];
+             way(around:4000,32.00944,34.88278)[aeroway=runway];
+             out geom;'
+          curl -sS -m 90 -G https://overpass-api.de/api/interpreter \
+            --data-urlencode "data=$Q" -o /tmp/osm.json
+
+          echo "=== raw element count ==="
+          jq '.elements | length' /tmp/osm.json
+
+          echo
+          echo "=== runway ends (first and last geometry point of each way) ==="
+          jq -r '.elements[]
+            | "ref=\(.tags.ref // "?")  surface=\(.tags.surface // "?")  points=\(.geometry|length)
+    end A: \(.geometry[0].lat), \(.geometry[0].lon)
+    end B: \(.geometry[-1].lat), \(.geometry[-1].lon)"' /tmp/osm.json
+
+          echo
+          echo "=== all tags, for anything useful I have missed ==="
+          jq -c '.elements[].tags' /tmp/osm.json
