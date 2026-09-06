@@ -48,7 +48,11 @@ So the app reads the same underlying ADS-B signal directly from community networ
 are keyless and free for non-commercial use, tried in order so one being down is not an
 outage:
 
-[airplanes.live](https://airplanes.live) → [adsb.lol](https://adsb.lol) → [adsb.fi](https://adsb.fi)
+[adsb.lol](https://adsb.lol) → [adsb.fi](https://adsb.fi) → [airplanes.live](https://airplanes.live)
+
+That order is empirical: a CI run against the deployed proxy showed airplanes.live
+failing and adsb.lol answering, so airplanes.live appears to refuse requests from
+Cloudflare's datacenter IPs and is tried last.
 
 ## The proxy, and why it is needed
 
