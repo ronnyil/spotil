@@ -65,7 +65,7 @@ jobs:
             exit 0
           fi
           PROXY="${PROXY%/}"
-          echo "GET $PROXY/?lat=32.0094&lon=34.8828&radius=20"
+          echo "GET $PROXY?lat=32.0094&lon=34.8828&radius=20"
           # curl leaves the output file untouched when the connection fails, so
           # clear it first or a stale body from an earlier run gets reported
           # alongside the new failure.
@@ -73,7 +73,7 @@ jobs:
           # %{http_code} is already 000 on a connection failure; adding another
           # fallback here concatenates and yields nonsense like 000000.
           code=$(curl -sS -o /tmp/resp.json -w '%{http_code}' \
-            "$PROXY/?lat=32.0094&lon=34.8828&radius=20" || true)
+            "$PROXY?lat=32.0094&lon=34.8828&radius=20" || true)
           echo "HTTP ${code:-000}"
           echo "--- response body ---"
           head -c 2000 /tmp/resp.json 2>/dev/null || echo "(no response body)"

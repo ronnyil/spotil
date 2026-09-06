@@ -48,7 +48,7 @@
 </main>
 <script type="module">
 // Bumped whenever this page changes, so a stale copy is obvious on sight.
-const BUILD = "2026-09-06f";
+const BUILD = "2026-09-06g";
 
 // Ben Gurion, 20 nm.
 const LAT = 32.0094, LON = 34.8828, R = 20;
@@ -77,8 +77,8 @@ try {
   const res = await fetch(`data/config.json?v=${Date.now()}`);
   const cfg = await res.json();
   if (cfg.adsbProxy) {
-    const base = cfg.adsbProxy.replace(/\/$/, "");
-    ENDPOINTS.unshift(["configured proxy", `${base}/?lat=${LAT}&lon=${LON}&radius=${R}`]);
+    const base = cfg.adsbProxy.replace(/\/+$/, "");
+    ENDPOINTS.unshift(["configured proxy", `${base}?lat=${LAT}&lon=${LON}&radius=${R}`]);
     configNote = `config.json → adsbProxy = ${cfg.adsbProxy}`;
   } else {
     configNote = "config.json loaded, but adsbProxy is empty - the site has no proxy configured.";
