@@ -30,10 +30,14 @@
     <button id="run">Run tests</button>
     <button id="copy" class="sec">Copy results</button>
   </div>
+  <p class="env" id="config"></p>
   <div id="out"></div>
   <p class="env" id="env"></p>
 </main>
 <script type="module">
+// Bumped whenever this page changes, so a stale copy is obvious on sight.
+const BUILD = "2026-09-06d";
+
 // Ben Gurion, 20 nm.
 const LAT = 32.0094, LON = 34.8828, R = 20;
 
@@ -54,13 +58,22 @@ for (const extra of new URLSearchParams(location.search).getAll("url")) {
 
 // Include whatever proxy the site is configured to use, so this page tests the
 // same path the app takes.
+let configNote = "";
 try {
-  const cfg = await (await fetch("data/config.json")).json();
+  // Cache-busted: a stale config.json is exactly the failure this page exists
+  // to catch, so it must never be served from cache here.
+  const res = await fetch(`data/config.json?v=${Date.now()}`);
+  const cfg = await res.json();
   if (cfg.adsbProxy) {
     const base = cfg.adsbProxy.replace(/\/$/, "");
     ENDPOINTS.unshift(["configured proxy", `${base}/?lat=${LAT}&lon=${LON}&radius=${R}`]);
+    configNote = `config.json → adsbProxy = ${cfg.adsbProxy}`;
+  } else {
+    configNote = "config.json loaded, but adsbProxy is empty - the site has no proxy configured.";
   }
-} catch {}
+} catch (err) {
+  configNote = `Could not read data/config.json (${err.message}) - the proxy cannot be tested.`;
+}
 
 const results = [];
 
@@ -82,7 +95,22 @@ async function probe(name, url) {
       try { entry.body = (await res.text()).slice(0, 400); } catch {}
       return entry;
     }
-    const body = await res.json();
+    // Parse separately from the transport: a response that arrived but is not
+    // JSON is a completely different problem from one that never arrived, and
+    // must not be reported as a CORS failure.
+    const text = await res.text();
+    let body;
+    try {
+      body = JSON.parse(text);
+    } catch {
+      entry.verdict = "NOT JSON";
+      entry.cls = "bad";
+      entry.detail = entry.name === "configured proxy"
+        ? "The proxy is reachable and CORS is fine, but it did not return JSON. Most likely the Worker still has Cloudflare's default Hello World code - paste worker/adsb-proxy.js into it and redeploy."
+        : "Reachable and CORS is fine, but the response is not JSON.";
+      entry.body = text.slice(0, 200);
+      return entry;
+    }
     const list = body.ac || body.aircraft || [];
     entry.verdict = "WORKS";
     entry.cls = "ok";
@@ -159,6 +187,8 @@ async function run() {
 document.getElementById("run").addEventListener("click", run);
 document.getElementById("copy").addEventListener("click", async () => {
   const text = [
+    `build: ${BUILD}`,
+    `config: ${configNote}`,
     `origin: ${location.origin}`,
     `ua: ${navigator.userAgent}`,
     ...results.map((r) =>
@@ -169,7 +199,9 @@ document.getElementById("copy").addEventListener("click", async () => {
   catch { prompt("Copy this:", text); }
 });
 
-document.getElementById("env").textContent = `origin ${location.origin} · ${navigator.userAgent}`;
+document.getElementById("env").textContent =
+  `build ${BUILD} · origin ${location.origin} · ${navigator.userAgent}`;
+document.getElementById("config").textContent = configNote;
 run();
 </script>
 </body>
