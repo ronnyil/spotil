@@ -93,8 +93,17 @@ repository secret:
    Workers**, or a custom token with just **Account → Workers Scripts → Edit**. Scope it
    to the one account; it needs nothing else.
 2. GitHub repo → **Settings → Secrets and variables → Actions → New repository secret**,
-   named `CLOUDFLARE_API_TOKEN`. Add `CLOUDFLARE_ACCOUNT_ID` the same way if the deploy
-   reports an ambiguous account.
+   named `CLOUDFLARE_API_TOKEN`.
+3. Add a second secret `CLOUDFLARE_ACCOUNT_ID`, copied from the right-hand sidebar of
+   **Workers & Pages** in the Cloudflare dashboard. This one is effectively required: a
+   token scoped only to Workers Scripts cannot call `/memberships`, which is how
+   wrangler discovers the account when the id is absent, and the deploy fails with
+   `Authentication failed (status: 400) [code: 9106]`.
+
+If that error persists with both secrets set, the token itself is being rejected. The
+usual causes are a trailing newline picked up when copying, or having pasted the
+**Global API Key** rather than an **API Token** - the two authenticate differently and
+wrangler only accepts the latter.
 
 Put the token straight into GitHub. It should not be pasted into a chat, an issue, or
 `wrangler.toml`.
