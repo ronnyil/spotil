@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TLV Spotting - data source diagnostics</title>
+<style>
+  body { font: 15px/1.55 system-ui, sans-serif; margin: 0; padding: 16px; background: #0b1220; color: #e9eef7; }
+  @media (prefers-color-scheme: light) { body { background: #f6f7f9; color: #10151f; } }
+  main { max-width: 780px; margin: 0 auto; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.sub { margin: 0 0 18px; opacity: .7; font-size: 13.5px; }
+  button { font: inherit; padding: 10px 18px; border-radius: 8px; border: 0; background: #0b6bcb; color: #fff; cursor: pointer; }
+  button.sec { background: transparent; border: 1px solid currentColor; color: inherit; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
+  .card { border: 1px solid rgba(128,128,128,.35); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; }
+  .card h2 { font-size: 14px; margin: 0 0 6px; font-family: ui-monospace, monospace; word-break: break-all; }
+  .verdict { font-weight: 700; }
+  .ok { color: #4ade80; } .bad { color: #f87171; } .warn { color: #fbbf24; }
+  .detail { font-size: 13px; opacity: .85; margin: 4px 0 0; }
+  pre { background: rgba(128,128,128,.14); padding: 10px; border-radius: 8px; overflow-x: auto; font-size: 12px; max-height: 220px; }
+  .env { font-size: 12.5px; opacity: .75; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Data source diagnostics</h1>
+  <p class="sub">Tests every ADS-B endpoint the site can use, from this browser, and separates "blocked by CORS" from "host unreachable".</p>
+  <div class="row">
+    <button id="run">Run tests</button>
+    <button id="copy" class="sec">Copy results</button>
+  </div>
+  <div id="out"></div>
+  <p class="env" id="env"></p>
+</main>
+<script>
+// Ben Gurion, 20 nm.
+const LAT = 32.0094, LON = 34.8828, R = 20;
+
+const ENDPOINTS = [
+  ["airplanes.live point",  `https://api.airplanes.live/v2/point/${LAT}/${LON}/${R}`],
+  ["airplanes.live latlon", `https://api.airplanes.live/v2/lat/${LAT}/lon/${LON}/dist/${R}`],
+  ["adsb.fi opendata",      `https://opendata.adsb.fi/api/v2/lat/${LAT}/lon/${LON}/dist/${R}`],
+  ["adsb.lol point",        `https://api.adsb.lol/v2/point/${LAT}/${LON}/${R}`],
+  ["adsb.lol latlon",       `https://api.adsb.lol/v2/lat/${LAT}/lon/${LON}/dist/${R}`],
+  ["adsb.lol v2 closest",   `https://api.adsb.lol/v2/closest/${LAT}/${LON}/${R}`],
+];
+
+// Any ?url= parameters are appended, so a candidate proxy can be tested here
+// before it is wired into the app.
+for (const extra of new URLSearchParams(location.search).getAll("url")) {
+  ENDPOINTS.push(["custom: " + extra, extra]);
+}
+
+const results = [];
+
+// A normal fetch failing tells us nothing about why. Repeating it as no-cors
+// does: an opaque response means the request left the machine and came back,
+// so the only thing that stopped the first one was the CORS policy.
+async function probe(name, url) {
+  const started = performance.now();
+  const entry = { name, url };
+
+  try {
+    const res = await fetch(url, { headers: { Accept: "application/json" } });
+    entry.ms = Math.round(performance.now() - started);
+    entry.status = res.status;
+    if (!res.ok) {
+      entry.verdict = "HTTP error";
+      entry.cls = "bad";
+      entry.detail = `Reachable and CORS is fine, but returned HTTP ${res.status} ${res.statusText}. Likely needs an API key now, or the path changed.`;
+      try { entry.body = (await res.text()).slice(0, 400); } catch {}
+      return entry;
+    }
+    const body = await res.json();
+    const list = body.ac || body.aircraft || [];
+    entry.verdict = "WORKS";
+    entry.cls = "ok";
+    entry.count = list.length;
+    entry.detail = `HTTP 200 in ${entry.ms}ms, ${list.length} aircraft returned.`;
+    entry.sample = list[0] ? JSON.stringify(list[0]).slice(0, 300) : "(empty list)";
+    return entry;
+  } catch (err) {
+    entry.ms = Math.round(performance.now() - started);
+    entry.error = `${err.name}: ${err.message}`;
+
+    let opaque = false;
+    try {
+      await fetch(url, { mode: "no-cors" });
+      opaque = true;
+    } catch (e2) {
+      entry.noCorsError = `${e2.name}: ${e2.message}`;
+    }
+
+    if (opaque) {
+      entry.verdict = "BLOCKED BY CORS";
+      entry.cls = "warn";
+      entry.detail = "The host answered, but sends no Access-Control-Allow-Origin header, so the browser will not let this page read the response. A server-side proxy fixes this.";
+    } else {
+      entry.verdict = "UNREACHABLE";
+      entry.cls = "bad";
+      entry.detail = "The request never completed even with CORS out of the picture - DNS failure, the host is down, or something on this network is blocking it.";
+    }
+    return entry;
+  }
+}
+
+async function run() {
+  const out = document.getElementById("out");
+  out.innerHTML = "";
+  results.length = 0;
+
+  for (const [name, url] of ENDPOINTS) {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `<h2>${name}</h2><p class="detail">testing…</p>`;
+    out.appendChild(card);
+
+    const r = await probe(name, url);
+    results.push(r);
+    card.innerHTML = `
+      <h2>${name}</h2>
+      <p class="verdict ${r.cls}">${r.verdict}</p>
+      <p class="detail">${r.detail}</p>
+      <p class="detail" style="opacity:.6">${r.url}</p>
+      ${r.error ? `<p class="detail">first attempt: <code>${r.error}</code></p>` : ""}
+      ${r.noCorsError ? `<p class="detail">no-cors attempt: <code>${r.noCorsError}</code></p>` : ""}
+      ${r.sample ? `<pre>${r.sample}</pre>` : ""}
+      ${r.body ? `<pre>${r.body}</pre>` : ""}
+    `;
+  }
+
+  const working = results.filter((r) => r.cls === "ok").length;
+  const banner = document.createElement("div");
+  banner.className = "card";
+  banner.innerHTML = working
+    ? `<p class="verdict ok">${working} endpoint(s) work from this browser - the site can run without a proxy.</p>`
+    : `<p class="verdict bad">No endpoint works from this browser.</p><p class="detail">If they all say BLOCKED BY CORS, the fix is a small server-side proxy. If they say UNREACHABLE, something on this network or in this region is blocking the hosts - try mobile data instead of Wi-Fi to tell those apart.</p>`;
+  out.prepend(banner);
+}
+
+document.getElementById("run").addEventListener("click", run);
+document.getElementById("copy").addEventListener("click", async () => {
+  const text = [
+    `origin: ${location.origin}`,
+    `ua: ${navigator.userAgent}`,
+    ...results.map((r) =>
+      `${r.name} | ${r.verdict} | status=${r.status ?? "-"} | ${r.ms}ms | err=${r.error ?? "-"} | nocors=${r.noCorsError ?? "-"}`
+    ),
+  ].join("\n");
+  try { await navigator.clipboard.writeText(text); alert("Copied - paste it back to Claude."); }
+  catch { prompt("Copy this:", text); }
+});
+
+document.getElementById("env").textContent = `origin ${location.origin} · ${navigator.userAgent}`;
+run();
+</script>
+</body>
+</html>

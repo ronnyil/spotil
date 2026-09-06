@@ -5,22 +5,14 @@
 // feed. These networks carry the same ADS-B signal, are keyless and
 // CORS-enabled, and permit non-commercial use. See README.md.
 
+// Several URL shapes are tried per network because these community APIs have
+// changed paths over time and not every deployment serves both forms.
 const SOURCES = [
-  {
-    name: "airplanes.live",
-    url: (lat, lon, nm) =>
-      `https://api.airplanes.live/v2/point/${lat.toFixed(4)}/${lon.toFixed(4)}/${Math.round(nm)}`,
-  },
-  {
-    name: "adsb.fi",
-    url: (lat, lon, nm) =>
-      `https://opendata.adsb.fi/api/v2/lat/${lat.toFixed(4)}/lon/${lon.toFixed(4)}/dist/${Math.round(nm)}`,
-  },
-  {
-    name: "adsb.lol",
-    url: (lat, lon, nm) =>
-      `https://api.adsb.lol/v2/point/${lat.toFixed(4)}/${lon.toFixed(4)}/${Math.round(nm)}`,
-  },
+  { name: "airplanes.live", url: (lat, lon, nm) => `https://api.airplanes.live/v2/point/${lat}/${lon}/${nm}` },
+  { name: "adsb.lol", url: (lat, lon, nm) => `https://api.adsb.lol/v2/point/${lat}/${lon}/${nm}` },
+  { name: "adsb.fi", url: (lat, lon, nm) => `https://opendata.adsb.fi/api/v2/lat/${lat}/lon/${lon}/dist/${nm}` },
+  { name: "adsb.lol (lat/lon)", url: (lat, lon, nm) => `https://api.adsb.lol/v2/lat/${lat}/lon/${lon}/dist/${nm}` },
+  { name: "airplanes.live (lat/lon)", url: (lat, lon, nm) => `https://api.airplanes.live/v2/lat/${lat}/lon/${lon}/dist/${nm}` },
 ];
 
 // These networks all speak the readsb aircraft.json dialect.
@@ -65,25 +57,38 @@ function normalise(raw) {
 // outage. Rejects only when every source fails.
 export async function fetchAircraft(lat, lon, radiusNm, { timeoutMs = 8000 } = {}) {
   const errors = [];
+  const la = lat.toFixed(4), lo = lon.toFixed(4), nm = Math.round(radiusNm);
 
   for (const source of SOURCES) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const res = await fetch(source.url(lat, lon, radiusNm), {
+      const res = await fetch(source.url(la, lo, nm), {
         signal: controller.signal,
         headers: { Accept: "application/json" },
       });
+      // An HTTP status means the request was allowed through and answered, so
+      // it is worth reporting separately from a request the browser refused.
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const body = await res.json();
       const raw = body.ac || body.aircraft || [];
       return { aircraft: normalise(raw), source: source.name, fetchedAt: Date.now() };
     } catch (err) {
-      errors.push(`${source.name}: ${err.message}`);
+      errors.push(`${source.name}: ${describe(err)}`);
     } finally {
       clearTimeout(timer);
     }
   }
 
-  throw new Error(`All ADS-B sources failed - ${errors.join("; ")}`);
+  const failure = new Error(`no source reachable (${errors.join("; ")})`);
+  failure.perSource = errors;
+  throw failure;
+}
+
+// A browser reports a CORS rejection and an unreachable host identically, as a
+// bare TypeError, so say what is actually known rather than inventing a cause.
+function describe(err) {
+  if (err.name === "AbortError") return "timed out";
+  if (err instanceof TypeError) return "blocked or unreachable";
+  return err.message;
 }
