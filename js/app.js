@@ -140,7 +140,13 @@ function renderConfig() {
     }
 
     basisEl.className = `basis ${data.basis}`;
-    basisEl.innerHTML = `<span class="dot"></span>${t(state.lang, data.basis === "observed" ? "observed" : data.basis === "predicted" ? "predicted" : "unknown")}`;
+    const basisText = t(state.lang, data.basis === "observed" ? "observed"
+      : data.basis === "predicted" ? "predicted" : "unknown");
+    // A live reading from one aircraft and one from eight are both "live", so
+    // show the count rather than letting the label imply equal weight.
+    const n = data.basis === "observed" ? (data.aircraft?.length ?? 0) : 0;
+    const suffix = n ? ` · ${n} ${t(state.lang, n === 1 ? "aircraftOne" : "aircraft")}` : "";
+    basisEl.innerHTML = `<span class="dot"></span>${basisText}${suffix}`;
 
     // A prediction has no measured confidence, so show the bar only for a
     // live reading rather than implying certainty we do not have.
