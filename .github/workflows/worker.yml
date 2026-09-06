@@ -87,3 +87,28 @@ jobs:
             echo "::error::Proxy returned HTTP $code - see the response body above"
             exit 1
           fi
+
+      # Every upstream refuses the Worker: two 403s and a 429. This probes the
+      # same endpoints from the runner, which is a different network, to
+      # establish whether they object to Cloudflare's shared egress IPs
+      # specifically or to datacenter traffic in general. The answer decides
+      # whether moving the proxy elsewhere would help at all.
+      - name: Probe the upstreams directly
+        if: always()
+        continue-on-error: true
+        run: |
+          probe() {
+            code=$(curl -sS -m 15 -o /tmp/u.txt -w '%{http_code}' \
+              -H 'Accept: application/json' \
+              -H 'User-Agent: spotil/1.0 (+https://github.com/ronnyil/spotil)' \
+              "$2" || true)
+            printf '%-16s %s  ' "$1" "${code:-000}"
+            head -c 160 /tmp/u.txt 2>/dev/null | tr -d '\n'
+            echo
+            rm -f /tmp/u.txt
+          }
+          L=32.0094; O=34.8828; R=20
+          probe "adsb.lol"       "https://api.adsb.lol/v2/point/$L/$O/$R"
+          probe "adsb.fi"        "https://opendata.adsb.fi/api/v2/lat/$L/lon/$O/dist/$R"
+          probe "airplanes.live" "https://api.airplanes.live/v2/point/$L/$O/$R"
+          probe "adsb.one"       "https://api.adsb.one/v2/point/$L/$O/$R"
