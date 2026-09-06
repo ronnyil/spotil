@@ -1,0 +1,6 @@
+{
+  "name": "spotil",
+  "private": true,
+  "type": "module",
+  "description": "Live runway-in-use detection and spotting guidance for Ben Gurion Airport."
+}

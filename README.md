@@ -59,81 +59,59 @@ Cloudflare's datacenter IPs and is tried last.
 **None of these networks sends an `Access-Control-Allow-Origin` header**, so a browser
 will not let the page read their responses, however reachable they are. This was
 confirmed from a real phone against the deployed site: all six endpoints answered a
-`no-cors` probe in 45–128 ms while every normal request failed — reachable, but blocked
+`no-cors` probe in 45-128 ms while every normal request failed - reachable, but blocked
 by policy. No client-side change can work around that.
 
-`worker/adsb-proxy.js` is a Cloudflare Worker that sits in front of them, adds the CORS
-header, and caches each distinct query for 45 seconds. The cache matters beyond
-latency: it means a hundred spotters using the site produce a trickle of upstream
-requests rather than a hundred polls every 20 seconds, which is what these volunteer-run
-networks ask for. Requests are clamped to a bounding box around Israel and to 50 nm so
-it cannot be used as a general-purpose ADS-B proxy.
+`api/adsb.js` is a Vercel serverless function that sits in front of them, adds the CORS
+header, and lets Vercel's CDN cache each distinct query. The cache matters beyond
+latency: `s-maxage=45` means a hundred spotters using the site produce one upstream
+request every 45 seconds rather than a hundred polls, which is what these volunteer-run
+networks ask for. `stale-while-revalidate=900` keeps the last good response serving for
+fifteen minutes if the upstreams stop answering.
 
-### When the upstreams refuse
+Requests are clamped to a bounding box around Israel and to 50 nm so it cannot be used
+as a general-purpose ADS-B proxy.
 
-They frequently do. A CI verification run against the live proxy returned:
+### Why Vercel's Node runtime specifically
+
+Not the Edge runtime. Vercel's Edge Functions run on Cloudflare's network, and these
+upstreams refuse it. The first version of this proxy was a Cloudflare Worker, and it got:
 
 ```
 airplanes.live: HTTP 403    adsb.lol: HTTP 429    adsb.fi: HTTP 403
 ```
 
-The 403s are those networks refusing datacenter IPs. The 429 is a rate limit, and it is
-not really ours to fix: Workers share egress IPs across many customers, so the limit
-applies to a pool this site has no control over.
+A CI step then called the same endpoints from a GitHub runner and got `200` from both
+adsb.lol and adsb.fi seconds later. So the refusal is aimed at Cloudflare's shared
+egress IPs, not at datacenter traffic generally - Workers share those IPs across
+thousands of customers, and the rate limit applies to a pool this site cannot influence.
+The Node runtime runs on AWS and is not caught by it.
 
-Two things absorb that. The serving cache is 45 seconds rather than 10, cutting upstream
-requests by roughly four times; runway configuration changes over hours, so the added
-staleness costs nothing. And every successful response is kept for 15 minutes as a
-fallback - when all three upstreams refuse, the proxy serves that instead of failing,
-flagged with `stale: true` and its age. The site displays the age and stops feeding the
-repeated snapshot to the vote tracker, so old data cannot masquerade as live; votes
-decay as normal and the display falls back to the time-of-day prediction once they do.
+airplanes.live returns 403 from everywhere with `"Please contact us at
+contact@airplanes.live"`, which is an access request rather than a block. It stays last
+in the upstream list until that access is granted.
+
+`worker/adsb-proxy.js` is kept as a second deployment target. The block is on
+Cloudflare's IP reputation rather than on anything the code does, so it may become
+usable again. Both import their shared logic from `shared/adsb-core.js`, so the upstream
+list and validation cannot drift apart.
 
 ### Deploying it
 
-Free, no card, about five minutes. No API keys or environment variables.
+Free, no card, a couple of minutes.
 
-1. Sign up at [dash.cloudflare.com](https://dash.cloudflare.com).
-2. **Compute (Workers) → Create → Start with Hello World! → Deploy.**
-3. Open the new Worker → **Edit code**, replace the contents with
-   `worker/adsb-proxy.js` from this repo, and **Deploy**.
-4. Copy the Worker URL (`https://<name>.<subdomain>.workers.dev`).
-5. Put it in `data/config.json` as `adsbProxy`, commit, push. Pages redeploys itself.
+1. Sign in at [vercel.com](https://vercel.com) with GitHub.
+2. **Add New → Project**, import this repository, and deploy. No build settings to
+   change - Vercel picks up `api/adsb.js` as a serverless function on its own.
+3. Put the **full endpoint URL** in `data/config.json` as `adsbProxy` - that is the
+   deployment URL with `/api/adsb` on the end, e.g.
+   `https://spotil.vercel.app/api/adsb`. The client appends only the query string, so
+   the same field works for either proxy without host-specific path building.
 
 Check it with `https://<your-site>/debug.html`, which tests the configured proxy
 alongside the direct endpoints.
 
-### Deploying it from CI instead
-
-`.github/workflows/worker.yml` redeploys the Worker on every push that touches
-`worker/`, so the code never has to be pasted into the dashboard by hand. It needs one
-repository secret:
-
-1. Cloudflare dashboard → **My Profile → API Tokens → Create Token → Edit Cloudflare
-   Workers**, or a custom token with just **Account → Workers Scripts → Edit**. Scope it
-   to the one account; it needs nothing else.
-2. GitHub repo → **Settings → Secrets and variables → Actions → New repository secret**,
-   named `CLOUDFLARE_API_TOKEN`.
-3. Add a second secret `CLOUDFLARE_ACCOUNT_ID`, copied from the right-hand sidebar of
-   **Workers & Pages** in the Cloudflare dashboard. This one is effectively required: a
-   token scoped only to Workers Scripts cannot call `/memberships`, which is how
-   wrangler discovers the account when the id is absent, and the deploy fails with
-   `Authentication failed (status: 400) [code: 9106]`.
-
-If that error persists with both secrets set, the token itself is being rejected. The
-usual causes are a trailing newline picked up when copying, or having pasted the
-**Global API Key** rather than an **API Token** - the two authenticate differently and
-wrangler only accepts the latter.
-
-Put the token straight into GitHub. It should not be pasted into a chat, an issue, or
-`wrangler.toml`.
-
-Without the secret the workflow skips the deploy and still runs its verification step,
-which calls the configured proxy and prints the response. That step needs no
-credentials, and a 502 from the Worker prints the per-upstream reason it failed - which
-is usually the fastest way to find out what is actually wrong.
-
-Leaving `adsbProxy` empty is valid — the site then falls back to the time-of-day
+Leaving `adsbProxy` empty is valid - the site then falls back to the time-of-day
 prediction and says so, rather than breaking.
 
 ## Spot data
@@ -192,7 +170,9 @@ data/airport.json   runway geometry, magnetic variation, time-of-day pattern
 data/spots.json     spotting locations
 data/config.json    proxy URL
 debug.html          data source diagnostics
-worker/             the Cloudflare Worker proxy
+shared/adsb-core.js upstream list, validation and fetching, shared by both proxies
+api/adsb.js         the Vercel proxy (the live one)
+worker/             the Cloudflare Worker proxy (blocked by upstreams; kept as a spare)
 ```
 
 ## Running it

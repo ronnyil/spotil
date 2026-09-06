@@ -7,6 +7,10 @@
 
 // Several URL shapes are tried per network because these community APIs have
 // changed paths over time and not every deployment serves both forms.
+// Beyond this, data is old enough to tell the user about. Generous enough that
+// ordinary clock skew between a phone and the server does not trip it.
+const STALE_AFTER_SECONDS = 120;
+
 const SOURCES = [
   { name: "airplanes.live", url: (lat, lon, nm) => `https://api.airplanes.live/v2/point/${lat}/${lon}/${nm}` },
   { name: "adsb.lol", url: (lat, lon, nm) => `https://api.adsb.lol/v2/point/${lat}/${lon}/${nm}` },
@@ -60,7 +64,7 @@ export async function fetchAircraft(lat, lon, radiusNm, { timeoutMs = 8000, prox
   const la = lat.toFixed(4), lo = lon.toFixed(4), nm = Math.round(radiusNm);
 
   const sources = proxy
-    ? [{ name: "proxy", url: () => `${proxy.replace(/\/$/, "")}/?lat=${la}&lon=${lo}&radius=${nm}` }, ...SOURCES]
+    ? [{ name: "proxy", url: () => `${proxy.replace(/\/+$/, "")}?lat=${la}&lon=${lo}&radius=${nm}` }, ...SOURCES]
     : SOURCES;
 
   for (const source of sources) {
@@ -79,17 +83,24 @@ export async function fetchAircraft(lat, lon, radiusNm, { timeoutMs = 8000, prox
       // The proxy reports which upstream it actually used, which is more
       // useful in the status line than the word "proxy".
       const label = source.name === "proxy" && body.source ? `proxy → ${body.source}` : source.name;
+      // Identifies the snapshot itself, so the caller can tell a genuinely new
+      // reading from the same one served again.
+      const payloadTime = Number.isFinite(body.now) ? body.now : Date.now() / 1000;
+
+      // The Cloudflare proxy flags staleness explicitly. The Vercel one leaves
+      // it to the CDN, which serves a cached body with no flag at all, so age
+      // is derived from the payload's own timestamp either way. Clamped at
+      // zero because a client clock running behind the server would otherwise
+      // produce a negative age.
+      const observedAge = Math.max(0, Math.round(Date.now() / 1000 - payloadTime));
+
       return {
         aircraft: normalise(raw),
         source: label,
         fetchedAt: Date.now(),
-        // The proxy sets these when every upstream refused and it fell back to
-        // its last good response.
-        stale: body.stale === true,
-        ageSeconds: Number.isFinite(body.ageSeconds) ? body.ageSeconds : 0,
-        // Identifies the snapshot itself, so the caller can tell a genuinely
-        // new reading from the same one served again.
-        payloadTime: Number.isFinite(body.now) ? body.now : Date.now() / 1000,
+        stale: body.stale === true || observedAge > STALE_AFTER_SECONDS,
+        ageSeconds: Number.isFinite(body.ageSeconds) ? body.ageSeconds : observedAge,
+        payloadTime,
       };
     } catch (err) {
       errors.push(`${source.name}: ${describe(err)}`);
