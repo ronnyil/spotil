@@ -92,13 +92,21 @@ function applyLanguage() {
 async function refresh() {
   const { lat, lon } = state.airport.arp;
   try {
-    const { aircraft, source } = await fetchAircraft(lat, lon, FETCH_RADIUS_NM, { proxy: state.proxy });
-    state.tracker.observe(aircraft);
-    state.liveAircraft = aircraft;
-    state.source = source;
+    const res = await fetchAircraft(lat, lon, FETCH_RADIUS_NM, { proxy: state.proxy });
+    // Only feed genuinely new data to the tracker. Re-observing the same
+    // snapshot would keep refreshing each vote's timestamp, so stale data
+    // would read as live and never decay.
+    if (res.payloadTime !== state.lastPayloadTime) {
+      state.tracker.observe(res.aircraft);
+      state.lastPayloadTime = res.payloadTime;
+    }
+    state.liveAircraft = res.aircraft;
+    state.source = res.source;
+    state.staleAge = res.stale ? res.ageSeconds : null;
     state.error = null;
   } catch (err) {
     state.error = err.message;
+    state.staleAge = null;
   }
   state.lastFetch = Date.now();
   state.resolved = resolveRunways(state.tracker.summary(), state.airport);
@@ -268,6 +276,11 @@ function renderStatus() {
     `${t(lang, "source")}: ${state.source}`,
     `${t(lang, "tracking")} ${state.resolved?.trackedAircraft ?? 0} ${t(lang, "aircraft")}`,
   ];
+  if (state.staleAge != null) {
+    const mins = Math.floor(state.staleAge / 60);
+    const readable = mins >= 1 ? `${mins} min` : `${state.staleAge}s`;
+    bits.push(`⚠ ${t(lang, "staleData")} ${readable}`);
+  }
   el.textContent = bits.join(" · ");
 
   if (!el.dataset.wired) {
