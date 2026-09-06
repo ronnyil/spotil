@@ -63,11 +63,31 @@ confirmed from a real phone against the deployed site: all six endpoints answere
 by policy. No client-side change can work around that.
 
 `worker/adsb-proxy.js` is a Cloudflare Worker that sits in front of them, adds the CORS
-header, and caches each distinct query for 10 seconds. The cache matters beyond
+header, and caches each distinct query for 45 seconds. The cache matters beyond
 latency: it means a hundred spotters using the site produce a trickle of upstream
 requests rather than a hundred polls every 20 seconds, which is what these volunteer-run
 networks ask for. Requests are clamped to a bounding box around Israel and to 50 nm so
 it cannot be used as a general-purpose ADS-B proxy.
+
+### When the upstreams refuse
+
+They frequently do. A CI verification run against the live proxy returned:
+
+```
+airplanes.live: HTTP 403    adsb.lol: HTTP 429    adsb.fi: HTTP 403
+```
+
+The 403s are those networks refusing datacenter IPs. The 429 is a rate limit, and it is
+not really ours to fix: Workers share egress IPs across many customers, so the limit
+applies to a pool this site has no control over.
+
+Two things absorb that. The serving cache is 45 seconds rather than 10, cutting upstream
+requests by roughly four times; runway configuration changes over hours, so the added
+staleness costs nothing. And every successful response is kept for 15 minutes as a
+fallback - when all three upstreams refuse, the proxy serves that instead of failing,
+flagged with `stale: true` and its age. The site displays the age and stops feeding the
+repeated snapshot to the vote tracker, so old data cannot masquerade as live; votes
+decay as normal and the display falls back to the time-of-day prediction once they do.
 
 ### Deploying it
 

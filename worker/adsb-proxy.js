@@ -20,8 +20,16 @@ const UPSTREAMS = [
 ];
 
 // Upstream is polled at most this often per distinct query, no matter how many
-// visitors the site has.
-const CACHE_SECONDS = 10;
+// visitors the site has. Raised from 10s after adsb.lol started returning 429:
+// Workers share egress IPs across many customers, so the rate limit is against
+// a pool we do not control. Runway configuration changes over hours, so even a
+// minute of staleness costs nothing that matters.
+const CACHE_SECONDS = 45;
+
+// How long a successful response is kept as a fallback. When every upstream
+// fails - which is now a routine event rather than an outage - serving data a
+// few minutes old is far better than serving nothing.
+const LAST_GOOD_SECONDS = 900;
 
 // Keeps this from becoming an open ADS-B proxy for the whole world. Israel and
 // a wide margin around it; widen if you ever point the site at another field.
@@ -42,7 +50,7 @@ function json(body, status = 200, extra = {}) {
 }
 
 export default {
-  async fetch(request) {
+  async fetch(request, env, ctx) {
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: CORS });
     }
@@ -77,10 +85,11 @@ export default {
     // Round the key so near-identical queries from different visitors share one
     // cached upstream response instead of each triggering their own.
     const la = lat.toFixed(3), lo = lon.toFixed(3), nm = Math.round(radius);
-    const cacheKey = new Request(
-      `https://adsb-proxy.invalid/v1?lat=${la}&lon=${lo}&radius=${nm}`,
-      { method: "GET" }
-    );
+    const keyFor = (kind) =>
+      new Request(`https://adsb-proxy.invalid/${kind}?lat=${la}&lon=${lo}&radius=${nm}`,
+                  { method: "GET" });
+    const cacheKey = keyFor("v1");
+    const lastGoodKey = keyFor("last-good");
     const cache = globalThis.caches?.default;
 
     const cached = cache ? await cache.match(cacheKey) : undefined;
@@ -110,18 +119,47 @@ export default {
         const body = await res.json();
         const aircraft = body.ac || body.aircraft || [];
 
-        const out = json(
-          { ac: aircraft, source: upstream.name, now: Date.now() / 1000, total: aircraft.length },
-          200,
-          { "Cache-Control": `public, max-age=${CACHE_SECONDS}` }
-        );
-        if (cache) await cache.put(cacheKey, out.clone());
+        const payload = {
+          ac: aircraft,
+          source: upstream.name,
+          now: Date.now() / 1000,
+          total: aircraft.length,
+        };
+        const out = json(payload, 200, {
+          "Cache-Control": `public, max-age=${CACHE_SECONDS}`,
+        });
+        if (cache) {
+          await cache.put(cacheKey, out.clone());
+          // Kept far longer than the serving cache, purely as a fallback.
+          await cache.put(
+            lastGoodKey,
+            json(payload, 200, { "Cache-Control": `public, max-age=${LAST_GOOD_SECONDS}` })
+          );
+        }
         return out;
       } catch (err) {
         errors.push(`${upstream.name}: ${err.name}: ${err.message}`);
       } finally {
         clearTimeout(timer);
       }
+    }
+
+    // Every upstream refused. Rather than fail outright, fall back to the last
+    // good response: slightly old traffic still identifies the runway in use,
+    // and the client is told how old it is so it can say so.
+    const lastGood = cache ? await cache.match(lastGoodKey) : undefined;
+    if (lastGood) {
+      const body = await lastGood.json();
+      return json(
+        {
+          ...body,
+          stale: true,
+          ageSeconds: Math.max(0, Math.round(Date.now() / 1000 - body.now)),
+          staleReason: errors,
+        },
+        200,
+        { "Cache-Control": "no-store" }
+      );
     }
 
     // Never cache a total failure - the next visitor should get a fresh try.

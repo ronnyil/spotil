@@ -79,7 +79,18 @@ export async function fetchAircraft(lat, lon, radiusNm, { timeoutMs = 8000, prox
       // The proxy reports which upstream it actually used, which is more
       // useful in the status line than the word "proxy".
       const label = source.name === "proxy" && body.source ? `proxy → ${body.source}` : source.name;
-      return { aircraft: normalise(raw), source: label, fetchedAt: Date.now() };
+      return {
+        aircraft: normalise(raw),
+        source: label,
+        fetchedAt: Date.now(),
+        // The proxy sets these when every upstream refused and it fell back to
+        // its last good response.
+        stale: body.stale === true,
+        ageSeconds: Number.isFinite(body.ageSeconds) ? body.ageSeconds : 0,
+        // Identifies the snapshot itself, so the caller can tell a genuinely
+        // new reading from the same one served again.
+        payloadTime: Number.isFinite(body.now) ? body.now : Date.now() / 1000,
+      };
     } catch (err) {
       errors.push(`${source.name}: ${describe(err)}`);
     } finally {
