@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>TLV Spotting - where to stand right now</title>
+<meta name="description" content="Live runway-in-use at Ben Gurion Airport, and the best spotting location for it right now.">
+<meta name="theme-color" content="#0b1220">
+<link rel="stylesheet" href="assets/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✈️</text></svg>">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true">✈</span>
+    <span>
+      <strong data-i18n="title">TLV Spotting</strong>
+      <small data-i18n="tagline">Where to stand, right now</small>
+    </span>
+  </div>
+  <button id="langToggle" class="lang" type="button" aria-label="Switch language">עברית</button>
+</header>
+
+<div id="safety" class="safety" hidden>
+  <p data-i18n="safety"></p>
+  <button id="safetyDismiss" type="button" data-i18n="dismiss">Got it</button>
+</div>
+
+<main>
+  <section class="config" aria-live="polite">
+    <article class="config-card" id="landingCard">
+      <h2 data-i18n="landing">Landing on</h2>
+      <p class="rwy" id="landingRwy">--</p>
+      <p class="basis" id="landingBasis"></p>
+      <div class="meter" role="img" aria-label="confidence"><span id="landingMeter"></span></div>
+    </article>
+    <article class="config-card" id="takeoffCard">
+      <h2 data-i18n="takeoff">Departing from</h2>
+      <p class="rwy" id="takeoffRwy">--</p>
+      <p class="basis" id="takeoffBasis"></p>
+      <div class="meter" role="img" aria-label="confidence"><span id="takeoffMeter"></span></div>
+    </article>
+  </section>
+
+  <p class="note" id="modeNote" hidden></p>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" class="tab active" data-op="landing" aria-selected="true"></button>
+    <button role="tab" class="tab" data-op="takeoff" aria-selected="false"></button>
+  </nav>
+
+  <section id="recommendation" aria-live="polite"></section>
+
+  <section class="mapwrap">
+    <h3 data-i18n="map">Map</h3>
+    <div id="map"></div>
+  </section>
+
+  <section class="traffic">
+    <h3 data-i18n="liveTraffic">Live traffic</h3>
+    <ul id="trafficList"></ul>
+  </section>
+</main>
+
+<footer>
+  <p class="status" id="status"></p>
+  <p class="credits" dir="ltr">
+    Runway data derived from community ADS-B
+    (<a href="https://airplanes.live" rel="noopener">airplanes.live</a>,
+    <a href="https://adsb.fi" rel="noopener">adsb.fi</a>,
+    <a href="https://adsb.lol" rel="noopener">adsb.lol</a>).
+    Spot knowledge from Moti Kaplan's post in
+    <span dir="rtl">חובבי הספוטינג בישראל</span> and public spotting guides.
+    Not for operational use.
+  </p>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

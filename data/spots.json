@@ -1,0 +1,155 @@
+{
+  "meta": {
+    "airport": "LLBG",
+    "coordinateWarning": "Pin positions are best-effort estimates and are flagged per spot with coordsApproximate. The Navigate button searches by place NAME, so it routes correctly even where a pin is off. Corrections welcome - edit this file.",
+    "sources": {
+      "kaplan2025": "Moti Kaplan, admin post in the Facebook group 'חובבי הספוטינג בישראל', 30 Aug 2025. Primary source for which spot serves which runway and at what time of day.",
+      "spotterguide": "spotterguide.net TLV/LLBG spotting guide (via search summary).",
+      "mzaviation": "mzaviation.com TLV spotting guide (via search summary)."
+    }
+  },
+  "spots": [
+    {
+      "id": "western-ops",
+      "name": { "en": "Western operations area (old \"Bama\" spot)", "he": "אזור תפעול מערבי (מיקום ה\"במה\" לשעבר)" },
+      "lat": 32.0,
+      "lon": 34.86,
+      "coordsApproximate": true,
+      "serves": [{ "runway": "26", "operation": "takeoff", "quality": 5 }],
+      "directions": {
+        "en": "Turn left before Sha'ar Tamar (Tamar Gate), then right at the end.",
+        "he": "פנייה שמאלה לפני שער תמר, ובסוף ימינה."
+      },
+      "notes": {
+        "en": "The go-to spot for departures, which leave from runway 26 in most cases - it is the long main runway at Ben Gurion. Also referenced elsewhere as the \"western support point\".",
+        "he": "המקום המרכזי להמראות. ההמראות ברוב המקרים ממסלול 26, המסלול הארוך העיקרי בנתב\"ג."
+      },
+      "source": "kaplan2025"
+    },
+    {
+      "id": "arcafe-or-yehuda",
+      "name": { "en": "Arcafe Or Yehuda (car park)", "he": "ארקפה אור יהודה (בחניה)" },
+      "lat": 32.027,
+      "lon": 34.86,
+      "coordsApproximate": true,
+      "serves": [{ "runway": "12", "operation": "landing", "quality": 5 }],
+      "notes": {
+        "en": "Morning spot. Runway 12 landings run west to east, so the approach passes north-west of the field. Spot from the car park.",
+        "he": "בבוקר - נחיתות ממסלול 12, ממערב למזרח. הנקודה: ארקפה אור יהודה, בחניה."
+      },
+      "facilities": { "parking": true, "food": true, "toilets": true },
+      "source": "kaplan2025"
+    },
+    {
+      "id": "big-yehud",
+      "name": { "en": "Big Yehud (Big Fashion Yehud)", "he": "ביג יהוד" },
+      "lat": 32.029,
+      "lon": 34.887,
+      "coordsApproximate": true,
+      "serves": [{ "runway": "21", "operation": "landing", "quality": 5 }],
+      "directions": {
+        "en": "Take the east lift to the 1st floor and use the south balcony; the Arcafe on the east side works too.",
+        "he": "מעלית מזרחית לקומה 1, מרפסת דרומית; גם ארקפה בצד המזרחי."
+      },
+      "notes": {
+        "en": "Late morning through the afternoon, when landings switch to runway 21 from the north-east.",
+        "he": "משעות הבוקר המאוחרות ועד הצהריים/אחה\"צ, מסלול 21, מצפון-מזרח."
+      },
+      "facilities": { "parking": true, "food": true, "toilets": true, "shade": true },
+      "source": "kaplan2025 + spotterguide"
+    },
+    {
+      "id": "bnei-atarot-junction",
+      "name": { "en": "Bnei Atarot junction area", "he": "אזור צומת בני עטרות" },
+      "lat": 32.019,
+      "lon": 34.913,
+      "coordsApproximate": true,
+      "serves": [{ "runway": "21", "operation": "landing", "quality": 4 }],
+      "notes": {
+        "en": "The other runway 21 option for late morning to afternoon, north-east of the field.",
+        "he": "אפשרות נוספת לנחיתות מסלול 21, צפון-מזרח לשדה."
+      },
+      "source": "kaplan2025"
+    },
+    {
+      "id": "hatayasim-461",
+      "name": { "en": "Route 461 at Hatayasim junction", "he": "כביש 461, צומת הטייסים" },
+      "lat": 32.0245,
+      "lon": 34.902,
+      "coordsApproximate": true,
+      "serves": [{ "runway": "21", "operation": "landing", "quality": 3 }],
+      "warning": {
+        "en": "Roadside only - there is nowhere to park properly. Stand well clear of traffic.",
+        "he": "עמידה בצד הדרך בלבד, אין חניה מסודרת. להתרחק מהכביש."
+      },
+      "facilities": { "parking": false },
+      "source": "spotterguide"
+    },
+    {
+      "id": "airport-city",
+      "name": { "en": "Airport City (Air Coffee)", "he": "איירפורט סיטי (אייר קפה)" },
+      "lat": 31.999,
+      "lon": 34.8735,
+      "coordsApproximate": true,
+      "serves": [{ "runway": "30", "operation": "landing", "quality": 5 }],
+      "notes": {
+        "en": "Evening spot, when landings come in from the east onto runway 30. The Air Coffee restaurant sits under the approach and has a public car park outside with plenty of room.",
+        "he": "משעות הערב - נחיתות ממזרח, מסלול 30. אייר קפה נמצא ממש מתחת לנתיב הנחיתה, עם חניה ציבורית גדולה."
+      },
+      "facilities": { "parking": true, "food": true, "toilets": true },
+      "source": "kaplan2025 + mzaviation"
+    },
+    {
+      "id": "dor-alon-tlv",
+      "name": { "en": "Dor Alon TLV", "he": "דור אלון נתב\"ג" },
+      "lat": 32.005,
+      "lon": 34.88,
+      "coordsApproximate": true,
+      "serves": [{ "runway": "30", "operation": "landing", "quality": 4 }],
+      "notes": {
+        "en": "The alternative evening spot for runway 30 landings.",
+        "he": "אפשרות נוספת לנחיתות ערב במסלול 30."
+      },
+      "facilities": { "parking": true, "food": true, "toilets": true },
+      "source": "kaplan2025"
+    },
+    {
+      "id": "el-al-junction",
+      "name": { "en": "El Al junction", "he": "צומת אל על" },
+      "lat": 32.0043,
+      "lon": 34.862,
+      "coordsApproximate": true,
+      "serves": [{ "runway": "30", "operation": "landing", "quality": 3 }],
+      "source": "mzaviation"
+    },
+    {
+      "id": "zafriya-bridge",
+      "name": { "en": "Zafriya bridge", "he": "הגשר ליד צפריה" },
+      "lat": 32.0033,
+      "lon": 34.8558,
+      "coordsApproximate": true,
+      "serves": [
+        { "runway": "08", "operation": "landing", "quality": 5 },
+        { "runway": "08", "operation": "takeoff", "quality": 5 }
+      ],
+      "warning": {
+        "en": "Stand on the SOUTH side of the bridge only. The north side is dangerous.",
+        "he": "לעמוד בצד הדרומי של הגשר בלבד. הצד הצפוני מסוכן."
+      },
+      "notes": {
+        "en": "Covers runway 08, the reciprocal of 26, used when the wind is easterly and often at night. The Israel Airports Authority has closed access to some ground near Zafriya in the past, so check on arrival.",
+        "he": "מכסה את מסלול 08. רשות שדות התעופה חסמה בעבר שטחים באזור צפריה - לבדוק במקום."
+      },
+      "facilities": { "parking": false },
+      "source": "spotterguide + mzaviation"
+    }
+  ],
+  "uncovered": [
+    { "runway": "12", "operation": "takeoff" },
+    { "runway": "30", "operation": "takeoff" },
+    { "runway": "21", "operation": "takeoff" },
+    { "runway": "03", "operation": "landing" },
+    { "runway": "03", "operation": "takeoff" },
+    { "runway": "26", "operation": "landing" }
+  ]
+}
