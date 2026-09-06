@@ -25,12 +25,15 @@ const state = {
 const $ = (sel) => document.querySelector(sel);
 
 async function boot() {
+  // Cache-busted so a returning visitor never runs on a stale proxy URL or an
+  // out-of-date spot list; these files are small and change rarely.
+  const v = Date.now();
   const [airport, spotFile, config] = await Promise.all([
-    fetch("data/airport.json").then((r) => r.json()),
-    fetch("data/spots.json").then((r) => r.json()),
+    fetch(`data/airport.json?v=${v}`).then((r) => r.json()),
+    fetch(`data/spots.json?v=${v}`).then((r) => r.json()),
     // Running without a proxy is a valid configuration, so a missing or broken
     // config file must not stop the page from loading.
-    fetch("data/config.json").then((r) => r.json()).catch(() => ({})),
+    fetch(`data/config.json?v=${v}`).then((r) => r.json()).catch(() => ({})),
   ]);
   state.airport = airport;
   state.spots = spotFile.spots;
