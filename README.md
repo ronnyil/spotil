@@ -79,6 +79,27 @@ Free, no card, about five minutes. No API keys or environment variables.
 Check it with `https://<your-site>/debug.html`, which tests the configured proxy
 alongside the direct endpoints.
 
+### Deploying it from CI instead
+
+`.github/workflows/worker.yml` redeploys the Worker on every push that touches
+`worker/`, so the code never has to be pasted into the dashboard by hand. It needs one
+repository secret:
+
+1. Cloudflare dashboard → **My Profile → API Tokens → Create Token → Edit Cloudflare
+   Workers**, or a custom token with just **Account → Workers Scripts → Edit**. Scope it
+   to the one account; it needs nothing else.
+2. GitHub repo → **Settings → Secrets and variables → Actions → New repository secret**,
+   named `CLOUDFLARE_API_TOKEN`. Add `CLOUDFLARE_ACCOUNT_ID` the same way if the deploy
+   reports an ambiguous account.
+
+Put the token straight into GitHub. It should not be pasted into a chat, an issue, or
+`wrangler.toml`.
+
+Without the secret the workflow skips the deploy and still runs its verification step,
+which calls the configured proxy and prints the response. That step needs no
+credentials, and a 502 from the Worker prints the per-upstream reason it failed - which
+is usually the fastest way to find out what is actually wrong.
+
 Leaving `adsbProxy` empty is valid — the site then falls back to the time-of-day
 prediction and says so, rather than breaking.
 

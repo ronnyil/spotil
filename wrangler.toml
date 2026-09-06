@@ -1,0 +1,10 @@
+# Deployment config for the ADS-B proxy Worker.
+#
+# The name must match the existing Worker so that deploys update it in place
+# rather than creating a second one on a different URL.
+name = "proud-pine-7d99"
+main = "worker/adsb-proxy.js"
+
+# Pins the runtime API surface. Recent enough that modern fetch and streams
+# behaviour is available regardless of when the Worker was first created.
+compatibility_date = "2026-09-01"
