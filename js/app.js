@@ -137,7 +137,7 @@ function renderConfig() {
   const note = $("#modeNote");
   const predicted = r.landing.basis !== "observed" || r.takeoff.basis !== "observed";
   if (state.error) {
-    note.textContent = t(state.lang, "error");
+    note.innerHTML = `${t(state.lang, "error")} <a href="debug.html">${t(state.lang, "diagnose")} \u2192</a>`;
     note.hidden = false;
   } else if (r.landing.basis === "unknown") {
     note.textContent = t(state.lang, "nightNote");
