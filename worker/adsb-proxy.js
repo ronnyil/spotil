@@ -8,10 +8,15 @@
 //
 // Deploy: see README.md. No API keys, no environment variables.
 
+// Ordered by what actually works from Cloudflare's network. A CI run against
+// the deployed Worker showed airplanes.live failing and adsb.lol answering, so
+// airplanes.live is tried last: it appears to refuse datacenter IPs, and
+// leading with it costs a wasted round trip on every cache miss. It stays in
+// the list because a fallback that is usually wrong still beats none at all.
 const UPSTREAMS = [
-  { name: "airplanes.live", url: (lat, lon, nm) => `https://api.airplanes.live/v2/point/${lat}/${lon}/${nm}` },
   { name: "adsb.lol", url: (lat, lon, nm) => `https://api.adsb.lol/v2/point/${lat}/${lon}/${nm}` },
   { name: "adsb.fi", url: (lat, lon, nm) => `https://opendata.adsb.fi/api/v2/lat/${lat}/lon/${lon}/dist/${nm}` },
+  { name: "airplanes.live", url: (lat, lon, nm) => `https://api.airplanes.live/v2/point/${lat}/${lon}/${nm}` },
 ];
 
 // Upstream is polled at most this often per distinct query, no matter how many
