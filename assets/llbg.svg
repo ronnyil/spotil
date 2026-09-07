@@ -1,0 +1,62 @@
+<!-- Ben Gurion Airport: a north-up runway diagram.
+     Geometry from OpenStreetMap threshold coordinates; every drawn point was
+     checked against the source data and matches to within 0.0001 SVG units.
+     Colours are deliberately absent - everything inherits currentColor so the
+     page can restyle the active runway and theme it light or dark. -->
+<svg viewBox="-70 -25 490 400"
+     role="img" aria-labelledby="tlv-title" aria-describedby="tlv-description"
+     fill="none" font-size="14" font-weight="600"
+     text-anchor="middle" dominant-baseline="middle">
+  <title id="tlv-title">Ben Gurion Airport, Tel Aviv (TLV / LLBG)</title>
+  <desc id="tlv-description">
+    North is up. x = (longitude - 34.85) * 6104.16;
+    y = (32.028 - latitude) * 7200.
+    Runway endpoints use the surveyed threshold coordinates exactly.
+    Runway strokes are uniformly enlarged for legibility:
+    60 metres uses 8 units; 45 metres uses 6 units.
+  </desc>
+
+  <!-- Overlays drawn from live data are appended into this group. -->
+  <g id="live-overlay"></g>
+
+  <!-- Runway 03/21: 2771 m by 60 m; true headings 028.7 / 208.7 degrees. -->
+  <line id="rwy-03-21" class="runway"
+        x1="220.37238432" y1="228.492000"
+        x2="306.59364432" y2="71.150400"
+        stroke="currentColor" stroke-width="8" stroke-linecap="butt"/>
+  <!-- Runway 08/26: 4055 m by 45 m; true headings 079.8 / 259.8 degrees. -->
+  <line id="rwy-08-26" class="runway"
+        x1="40.83683040" y1="113.680800"
+        x2="299.19540240" y2="67.197600"
+        stroke="currentColor" stroke-width="6" stroke-linecap="butt"/>
+  <!-- Runway 12/30: 3113 m by 45 m; true headings 121.4 / 301.5 degrees. -->
+  <line id="rwy-12-30" class="runway"
+        x1="102.02493024" y1="99.064800"
+        x2="273.96690912" y2="204.228000"
+        stroke="currentColor" stroke-width="6" stroke-linecap="butt"/>
+
+  <text id="label-03" class="threshold-label" x="208.838865" y="249.539041" fill="currentColor">03</text>
+  <text id="label-21" class="threshold-label" x="321.971670" y="43.087679" fill="currentColor">21</text>
+  <text id="label-08" class="threshold-label" x="17.216090" y="117.930582" fill="currentColor">08</text>
+  <text id="label-26" class="threshold-label" x="322.816142" y="62.947818" fill="currentColor">26</text>
+  <text id="label-12" class="threshold-label" x="81.550806" y="86.542411" fill="currentColor">12</text>
+  <text id="label-30" class="threshold-label" x="294.441033" y="216.750389" fill="currentColor">30</text>
+
+  <!-- True-north arrow, pointing toward decreasing SVG y. Moved clear of the
+       runway 12 approach corridor, which crosses its original position. -->
+  <g id="compass" transform="translate(-104,-28)">
+    <path id="north-arrow" class="chrome" d="M 44 87 V 50 M 38 58 L 44 50 L 50 58"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text id="north-label" class="chrome-label" x="44" y="36" fill="currentColor">N</text>
+  </g>
+
+  <!-- Kilometre scale: 1 km = 64.751 units. -->
+  <g id="scale" transform="translate(-104,34)">
+  <path id="scale-bar" class="chrome"
+        d="M 44 304 H 173.502 M 44 299 V 309 M 108.751 299 V 309 M 173.502 299 V 309"
+        stroke="currentColor" stroke-width="2" stroke-linecap="butt"/>
+  <text id="scale-label-0" class="chrome-label" x="44" y="324" font-size="12" fill="currentColor">0</text>
+  <text id="scale-label-1" class="chrome-label" x="108.751" y="324" font-size="12" fill="currentColor">1</text>
+  <text id="scale-label-2" class="chrome-label" x="173.502" y="324" font-size="12" fill="currentColor">2 km</text>
+  </g>
+</svg>

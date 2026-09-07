@@ -8,50 +8,77 @@
   },
   "elevationFt": 135,
   "magVar": 4.6,
-  "_magVarNote": "Degrees EAST. Runway designators are magnetic; ADS-B track is true. trueBearing = magneticBearing + magVar.",
+  "_magVarNote": "Degrees EAST. Retained for reference only. Runway bearings are no longer derived from designator plus variation - they are measured from the real threshold coordinates below, which differ from the derived values by 3 to 6 degrees.",
   "runways": [
     {
       "pair": "12/30",
-      "lengthM": 3112,
+      "lengthM": 3113,
+      "widthM": 45,
       "ends": [
         {
           "id": "12",
-          "magBearing": 120
+          "trueBearing": 121.4,
+          "threshold": {
+            "lat": 32.014241,
+            "lon": 34.866714
+          }
         },
         {
           "id": "30",
-          "magBearing": 300
+          "trueBearing": 301.5,
+          "threshold": {
+            "lat": 31.999635,
+            "lon": 34.894882
+          }
         }
       ]
     },
     {
       "pair": "08/26",
-      "lengthM": 4062,
+      "lengthM": 4055,
+      "widthM": 45,
       "ends": [
         {
           "id": "08",
-          "magBearing": 80
+          "trueBearing": 79.8,
+          "threshold": {
+            "lat": 32.012211,
+            "lon": 34.85669
+          }
         },
         {
           "id": "26",
-          "magBearing": 260
+          "trueBearing": 259.8,
+          "threshold": {
+            "lat": 32.018667,
+            "lon": 34.899015
+          }
         }
       ]
     },
     {
       "pair": "03/21",
-      "lengthM": 2772,
+      "lengthM": 2771,
+      "widthM": 60,
+      "note": "Shortest and least active runway - mainly cargo and charter traffic.",
       "ends": [
         {
           "id": "03",
-          "magBearing": 30
+          "trueBearing": 28.7,
+          "threshold": {
+            "lat": 31.996265,
+            "lon": 34.886102
+          }
         },
         {
           "id": "21",
-          "magBearing": 210
+          "trueBearing": 208.7,
+          "threshold": {
+            "lat": 32.018118,
+            "lon": 34.900227
+          }
         }
-      ],
-      "note": "Shortest and least active runway - mainly cargo and charter traffic."
+      ]
     }
   ],
   "timezone": "Asia/Jerusalem",
@@ -84,5 +111,19 @@
         "label": "night - no published pattern, live data only"
       }
     ]
+  },
+  "_geometrySource": "Threshold coordinates and lengths from OpenStreetMap (Overpass, aeroway=runway around LLBG), combining each runway's centre way with its displaced-threshold ways to get the full paved extent. Computed lengths agree with OSM's own length tags to within 7 m.",
+  "diagramProjection": {
+    "_note": "Maps lat/lon into the runway diagram's coordinate space. The frame is wider than the airport so approach and departure arrows, and spots a few kilometres out, have somewhere to go.",
+    "originLat": 32.028,
+    "originLon": 34.85,
+    "pxPerDegLat": 7200,
+    "pxPerDegLon": 6104.16,
+    "frame": {
+      "x": -70,
+      "y": -25,
+      "w": 490,
+      "h": 400
+    }
   }
 }
