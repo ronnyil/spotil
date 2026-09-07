@@ -25,6 +25,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Validate the proxy URL is usable from a browser
+        run: python3 scripts/validate-config.py
+
       - name: Check the configured proxy
         id: proxy
         run: |

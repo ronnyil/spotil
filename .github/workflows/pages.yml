@@ -24,6 +24,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # A proxy URL that cannot work from a browser disables live data silently,
+      # so it must not reach a deploy.
+      - run: python3 scripts/validate-config.py
+
       # enablement turns Pages on for the repository if it is not already,
       # so no manual settings toggle is needed.
       - uses: actions/configure-pages@v5
