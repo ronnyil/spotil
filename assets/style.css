@@ -138,6 +138,63 @@ main { max-width: 720px; margin: 0 auto; padding: 0 16px 32px; }
 
 h3 { font-size: 14px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 22px 0 10px; }
 
+/* Runway diagram. The SVG carries no colours of its own - everything inherits
+   currentColor or these classes - so the active runway can be highlighted and
+   the whole thing themed without touching the geometry. */
+.diagram #diagram {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: var(--radius); box-shadow: var(--shadow); padding: 6px 6px 2px;
+}
+.diagram svg {
+  display: block; width: 100%; height: auto;
+  font-family: inherit; color: var(--diag-idle);
+}
+.diagram .runway { opacity: .55; }
+.diagram .runway.is-active { color: var(--diag-active); opacity: 1; }
+.diagram .threshold-label { fill: var(--muted); }
+.diagram .threshold-label.is-active {
+  fill: var(--diag-active); font-size: 16px; font-weight: 800;
+}
+.diagram .chrome, .diagram .chrome-label { color: var(--muted); opacity: .8; }
+.diagram .chrome-label { fill: var(--muted); }
+
+.diagram .arrive-arrow {
+  stroke: var(--diag-arrive); stroke-width: 2.5; stroke-dasharray: 7 5; fill: none;
+}
+.diagram .depart-arrow { stroke: var(--diag-depart); stroke-width: 2.5; fill: none; }
+.diagram .ah-arrive path { fill: var(--diag-arrive); }
+.diagram .ah-depart path { fill: var(--diag-depart); }
+.diagram .spot-dot { fill: var(--accent); stroke: var(--panel); stroke-width: 2; }
+.diagram .spot-halo { fill: none; stroke: var(--accent); stroke-width: 1.5; opacity: .45; }
+
+.diagram-legend { list-style: none; margin: 8px 0 4px; padding: 0 4px; }
+.diagram-legend li {
+  display: flex; align-items: center; gap: 9px;
+  font-size: 13.5px; font-weight: 600; padding: 3px 0;
+}
+.diagram-legend .key { width: 20px; height: 0; border-top-width: 3px; flex: none; }
+.lg-arrive { color: var(--diag-arrive); }
+.lg-arrive .key { border-top-style: dashed; border-top-color: var(--diag-arrive); }
+.lg-depart { color: var(--diag-depart); }
+.lg-depart .key { border-top-style: solid; border-top-color: var(--diag-depart); }
+.lg-spot { color: var(--accent); }
+.lg-spot .key { border: 0; width: 11px; height: 11px; border-radius: 50%; background: var(--accent); }
+
+:root {
+  --diag-active: #0b6bcb;
+  --diag-idle: #9aa5b1;
+  --diag-arrive: #1a7f52;
+  --diag-depart: #b45309;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --diag-active: #4f9bf0;
+    --diag-idle: #46536b;
+    --diag-arrive: #4ade80;
+    --diag-depart: #fbbf24;
+  }
+}
+
 .traffic ul { list-style: none; margin: 0; padding: 0; }
 .traffic li {
   display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;

@@ -2,6 +2,7 @@ import { fetchAircraft } from "./adsb.js";
 import { RunwayTracker } from "./runway.js";
 import { resolveRunways, rankSpots, navLinks } from "./recommend.js";
 import { STRINGS, t } from "./i18n.js";
+import { decorate } from "./diagram.js";
 
 const REFRESH_MS = 20000;
 const FETCH_RADIUS_NM = 20;
@@ -25,16 +26,20 @@ async function boot() {
   // Cache-busted so a returning visitor never runs on a stale proxy URL or an
   // out-of-date spot list; these files are small and change rarely.
   const v = Date.now();
-  const [airport, spotFile, config] = await Promise.all([
+  const [airport, spotFile, config, diagramSvg] = await Promise.all([
     fetch(`data/airport.json?v=${v}`).then((r) => r.json()),
     fetch(`data/spots.json?v=${v}`).then((r) => r.json()),
     // Running without a proxy is a valid configuration, so a missing or broken
     // config file must not stop the page from loading.
     fetch(`data/config.json?v=${v}`).then((r) => r.json()).catch(() => ({})),
+    // The diagram is a static asset; a failure to load it must not stop the
+    // page, which answers the question perfectly well without a picture.
+    fetch(`assets/llbg.svg?v=${v}`).then((r) => r.text()).catch(() => ""),
   ]);
   state.airport = airport;
   state.spots = spotFile.spots;
   state.proxy = config.adsbProxy || "";
+  if (diagramSvg) $("#diagram").innerHTML = diagramSvg;
   state.tracker = new RunwayTracker(airport);
 
   applyLanguage();
@@ -114,6 +119,36 @@ function render() {
   renderRecommendation();
   renderTraffic();
   renderStatus();
+  renderDiagram();
+}
+
+function renderDiagram() {
+  const svg = document.querySelector("#diagram svg");
+  const r = state.resolved;
+  if (!svg || !r) return;
+
+  // Show the spot for whichever operation is selected, so the picture and the
+  // recommendation below it always agree.
+  const op = state.operation;
+  const top = rankSpots(state.spots, state.airport, r[op].runway, op, {
+    from: state.userPosition,
+  })[0];
+
+  const legend = decorate(svg, {
+    airport: state.airport,
+    landingRunway: r.landing.runway,
+    takeoffRunway: r.takeoff.runway,
+    spot: top?.spot ?? null,
+    strings: STRINGS[state.lang],
+  });
+
+  const host = document.querySelector("#diagram");
+  host.querySelector(".diagram-legend")?.remove();
+  if (!legend.length) return;
+  const ul = document.createElement("ul");
+  ul.className = "diagram-legend";
+  ul.innerHTML = legend.map((i) => `<li class="lg-${i.kind}"><span class="key"></span>${i.text}</li>`).join("");
+  host.appendChild(ul);
 }
 
 function renderConfig() {

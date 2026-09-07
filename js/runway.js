@@ -47,11 +47,9 @@ const LIMITS = {
   saturationWeight: 1.5,
 };
 
-export function trueBearing(magBearing, magVar) {
-  return norm360(magBearing + magVar);
-}
-
-// Every runway end as a flat list, with its true bearing resolved.
+// Every runway end as a flat list. Bearings and thresholds are measured from
+// real coordinates rather than derived from the designator plus magnetic
+// variation, which was wrong by 3 to 6 degrees for every runway here.
 export function runwayEnds(airport) {
   const ends = [];
   for (const rwy of airport.runways) {
@@ -59,9 +57,10 @@ export function runwayEnds(airport) {
       ends.push({
         id: end.id,
         pair: rwy.pair,
-        magBearing: end.magBearing,
-        trueBearing: trueBearing(end.magBearing, airport.magVar),
+        trueBearing: end.trueBearing,
+        threshold: end.threshold,
         lengthM: rwy.lengthM,
+        widthM: rwy.widthM,
       });
     }
   }
@@ -86,9 +85,13 @@ export function classifyAircraft(ac, airport, ends) {
   let best = null;
 
   for (const end of ends) {
+    // Distances are measured from this runway's own threshold: the runways do
+    // not pass through the airport reference point, so measuring from the ARP
+    // put the centreline up to a kilometre off.
+    const origin = end.threshold ?? arp;
     const trackErr = angleDiff(ac.track, end.trueBearing);
-    const crossNm = crossTrackNm(arp, ac, end.trueBearing);
-    const alongNm = alongTrackNm(arp, ac, end.trueBearing);
+    const crossNm = crossTrackNm(origin, ac, end.trueBearing);
+    const alongNm = alongTrackNm(origin, ac, end.trueBearing);
 
     // Arrival: inbound on the approach side, so behind the field along the
     // runway axis, pointing at it, going down.
