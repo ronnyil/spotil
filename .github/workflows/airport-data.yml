@@ -28,9 +28,41 @@ jobs:
           Q = ("[out:json][timeout:25];"
                "way(around:4000,32.00944,34.88278)[aeroway=runway];"
                "out geom;")
-          url = "https://overpass-api.de/api/interpreter?" + urllib.parse.urlencode({"data": Q})
-          with urllib.request.urlopen(url, timeout=90) as r:
-              data = json.load(r)
+
+          # Overpass answers 406 to urllib's default User-Agent, and the query
+          # goes in a POST body rather than the query string. Mirrors are tried
+          # in turn because the main instance is frequently rate limited.
+          MIRRORS = [
+              "https://overpass-api.de/api/interpreter",
+              "https://overpass.kumi.systems/api/interpreter",
+              "https://overpass.osm.ch/api/interpreter",
+          ]
+          data = None
+          for endpoint in MIRRORS:
+              req = urllib.request.Request(
+                  endpoint,
+                  data=urllib.parse.urlencode({"data": Q}).encode(),
+                  headers={
+                      "User-Agent": "spotil/1.0 (+https://github.com/ronnyil/spotil)",
+                      "Accept": "application/json",
+                  },
+              )
+              try:
+                  with urllib.request.urlopen(req, timeout=90) as r:
+                      data = json.load(r)
+                  print("source:", endpoint)
+                  break
+              except Exception as err:
+                  body = ""
+                  if hasattr(err, "read"):
+                      try:
+                          body = err.read().decode("utf-8", "replace")[:200].replace("\n", " ")
+                      except Exception:
+                          pass
+                  print("failed:", endpoint, "->", type(err).__name__, err, body)
+
+          if data is None:
+              raise SystemExit("every Overpass mirror refused the query")
 
           els = data.get("elements", [])
           print("elements returned:", len(els))
