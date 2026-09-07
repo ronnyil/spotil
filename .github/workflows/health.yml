@@ -34,15 +34,41 @@ jobs:
             exit 0
           fi
           PROXY="${PROXY%/}"
-          echo "GET $PROXY?lat=32.0094&lon=34.8828&radius=20"
-          rm -f /tmp/resp.json
-          code=$(curl -sS -o /tmp/resp.json -w '%{http_code}' \
+
+          # A bare status code cannot distinguish "no route" from "connection
+          # refused" from "TLS failure", and 000 means no HTTP response at all.
+          # Ask curl for its own error text, and try the endpoint three ways so
+          # a working root with a dead function is immediately visible.
+          probe_url() {
+            echo "> $1"
+            rm -f /tmp/resp.json /tmp/hdr.txt
+            curl -sS -m 25 -o /tmp/resp.json -D /tmp/hdr.txt \
+              -w '  code=%{http_code} exit=%{exitcode} err=%{errormsg} time=%{time_total}s\n' \
+              "$1" || echo "  curl failed"
+            if [ -s /tmp/hdr.txt ]; then
+              echo "  --- response headers ---"
+              sed 's/^/  /' /tmp/hdr.txt | head -12
+            fi
+            if [ -s /tmp/resp.json ]; then
+              echo "  --- body (first 600) ---"
+              head -c 600 /tmp/resp.json | sed 's/^/  /'
+              echo
+            fi
+          }
+
+          echo "=== the query the site actually makes ==="
+          probe_url "$PROXY?lat=32.0094&lon=34.8828&radius=20"
+          code=$(curl -sS -m 25 -o /dev/null -w '%{http_code}' \
             "$PROXY?lat=32.0094&lon=34.8828&radius=20" || true)
-          echo "HTTP ${code:-000}"
-          echo "--- body ---"
-          head -c 2000 /tmp/resp.json 2>/dev/null || echo "(no body)"
+
           echo
-          echo "------------"
+          echo "=== same endpoint with no query: should be 400 if the function exists ==="
+          probe_url "$PROXY"
+
+          echo
+          echo "=== a path that certainly does not exist: shows what a 404 looks like here ==="
+          probe_url "https://spotil.vercel.app/api/__does-not-exist"
+
           echo "code=${code:-000}" >> "$GITHUB_OUTPUT"
 
       - name: Check the deployment is serving at all
