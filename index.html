@@ -29,33 +29,27 @@
 
 <main>
   <section class="config" aria-live="polite">
-    <article class="config-card" id="landingCard">
-      <h2 data-i18n="landing">Landing on</h2>
-      <p class="rwy" id="landingRwy">--</p>
-      <p class="basis" id="landingBasis"></p>
-      <div class="meter" role="img" aria-label="confidence"><span id="landingMeter"></span></div>
-    </article>
-    <article class="config-card" id="takeoffCard">
-      <h2 data-i18n="takeoff">Departing from</h2>
-      <p class="rwy" id="takeoffRwy">--</p>
-      <p class="basis" id="takeoffBasis"></p>
-      <div class="meter" role="img" aria-label="confidence"><span id="takeoffMeter"></span></div>
-    </article>
+    <button type="button" class="op is-selected" data-op="landing" aria-pressed="true">
+      <span class="op-name"><span class="op-arrow" aria-hidden="true">↓</span><span data-i18n="landingShort">Landing</span></span>
+      <span class="rwy" id="landingRwy">--</span>
+      <span class="basis" id="landingBasis"></span>
+      <span class="meter"><span id="landingMeter"></span></span>
+    </button>
+    <button type="button" class="op" data-op="takeoff" aria-pressed="false">
+      <span class="op-name"><span class="op-arrow" aria-hidden="true">↑</span><span data-i18n="takeoffShort">Departing</span></span>
+      <span class="rwy" id="takeoffRwy">--</span>
+      <span class="basis" id="takeoffBasis"></span>
+      <span class="meter"><span id="takeoffMeter"></span></span>
+    </button>
+  </section>
+
+  <section class="diagram">
+    <div id="diagram"></div>
   </section>
 
   <p class="note" id="modeNote" hidden></p>
 
-  <nav class="tabs" role="tablist">
-    <button role="tab" class="tab active" data-op="landing" aria-selected="true"></button>
-    <button role="tab" class="tab" data-op="takeoff" aria-selected="false"></button>
-  </nav>
-
   <section id="recommendation" aria-live="polite"></section>
-
-  <section class="diagram">
-    <h3 data-i18n="map">Runways in use</h3>
-    <div id="diagram"></div>
-  </section>
 
   <section class="traffic">
     <h3 data-i18n="liveTraffic">Live traffic</h3>
