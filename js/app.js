@@ -58,13 +58,13 @@ function wireControls() {
     render();
   });
 
-  for (const tab of document.querySelectorAll(".tab")) {
-    tab.addEventListener("click", () => {
-      state.operation = tab.dataset.op;
-      for (const other of document.querySelectorAll(".tab")) {
-        const on = other === tab;
-        other.classList.toggle("active", on);
-        other.setAttribute("aria-selected", String(on));
+  for (const button of document.querySelectorAll(".op")) {
+    button.addEventListener("click", () => {
+      state.operation = button.dataset.op;
+      for (const other of document.querySelectorAll(".op")) {
+        const on = other === button;
+        other.classList.toggle("is-selected", on);
+        other.setAttribute("aria-pressed", String(on));
       }
       render();
     });
@@ -80,14 +80,15 @@ function wireControls() {
 
 function applyLanguage() {
   const s = STRINGS[state.lang];
+  for (const button of document.querySelectorAll(".op")) {
+    button.setAttribute("aria-label", t(state.lang, button.dataset.op));
+  }
   document.documentElement.lang = state.lang;
   document.documentElement.dir = s.dir;
   $("#langToggle").textContent = state.lang === "en" ? "עברית" : "English";
   for (const el of document.querySelectorAll("[data-i18n]")) {
     el.textContent = t(state.lang, el.dataset.i18n);
   }
-  document.querySelector('.tab[data-op="landing"]').textContent = t(state.lang, "landing");
-  document.querySelector('.tab[data-op="takeoff"]').textContent = t(state.lang, "takeoff");
 }
 
 async function refresh() {
@@ -170,8 +171,8 @@ function renderConfig() {
     }
 
     basisEl.className = `basis ${data.basis}`;
-    const basisText = t(state.lang, data.basis === "observed" ? "observed"
-      : data.basis === "predicted" ? "predicted" : "unknown");
+    const basisText = t(state.lang, data.basis === "observed" ? "observedShort"
+      : data.basis === "predicted" ? "predictedShort" : "unknownShort");
     // A live reading from one aircraft and one from eight are both "live", so
     // show the count rather than letting the label imply equal weight.
     const n = data.basis === "observed" ? (data.aircraft?.length ?? 0) : 0;

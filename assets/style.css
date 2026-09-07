@@ -75,20 +75,48 @@ main { max-width: 720px; margin: 0 auto; padding: 0 16px 32px; }
   border-radius: 8px; padding: 7px 14px; font-size: 14px; cursor: pointer;
 }
 
-.config { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0 10px; }
-.config-card {
-  background: var(--panel); border: 1px solid var(--line);
-  border-radius: var(--radius); padding: 14px; box-shadow: var(--shadow);
+/* The runway readout is also the selector: tapping a side chooses which
+   operation the diagram and the recommendation below describe. One control
+   instead of two, which is what freed the room for the diagram. */
+.config { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 14px 0 10px; }
+
+.op {
+  display: grid; gap: 2px; text-align: start;
+  padding: 10px 12px 9px; cursor: pointer; font: inherit;
+  background: var(--panel); color: var(--ink);
+  border: 1px solid var(--line); border-radius: var(--radius);
+  transition: border-color .15s ease, background .15s ease;
 }
-.config-card h2 { margin: 0; font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
-.rwy { margin: 6px 0 4px; font-size: 40px; font-weight: 700; line-height: 1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
-.rwy.unknown { color: var(--muted); font-size: 26px; }
-.basis { margin: 0 0 10px; font-size: 12px; color: var(--muted); }
-.basis .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-inline-end: 6px; background: var(--muted); vertical-align: middle; }
+.op:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.op.is-selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 7%, var(--panel));
+}
+.op:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.op-name {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--muted);
+}
+.op-arrow { font-size: 13px; line-height: 1; }
+.op.is-selected .op-name { color: var(--accent); }
+
+.rwy {
+  font-size: 30px; font-weight: 700; line-height: 1.05;
+  letter-spacing: -.02em; font-variant-numeric: tabular-nums;
+}
+.rwy.unknown { font-size: 17px; color: var(--muted); line-height: 1.5; }
+
+.basis { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.basis .dot {
+  display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+  margin-inline-end: 5px; background: var(--muted); vertical-align: middle;
+}
 .basis.observed .dot { background: var(--good); }
 .basis.predicted .dot { background: var(--warn); }
 
-.meter { height: 4px; background: var(--line); border-radius: 999px; overflow: hidden; }
+.meter { display: block; height: 3px; margin-top: 5px; background: var(--line); border-radius: 999px; overflow: hidden; }
 .meter span { display: block; height: 100%; width: 0; background: var(--good); transition: width .4s ease; }
 .predicted-meter span { background: var(--warn); }
 
@@ -141,13 +169,18 @@ h3 { font-size: 14px; text-transform: uppercase; letter-spacing: .04em; color: v
 /* Runway diagram. The SVG carries no colours of its own - everything inherits
    currentColor or these classes - so the active runway can be highlighted and
    the whole thing themed without touching the geometry. */
+.diagram { margin-bottom: 14px; }
 .diagram #diagram {
   background: var(--panel); border: 1px solid var(--line);
-  border-radius: var(--radius); box-shadow: var(--shadow); padding: 6px 6px 2px;
+  border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 10px 12px 6px;
 }
 .diagram svg {
   display: block; width: 100%; height: auto;
   font-family: inherit; color: var(--diag-idle);
+  /* The drawing is geographic, not text: in Hebrew the scale label was being
+     reordered to "km 2". Isolate it from the page's direction. */
+  direction: ltr; unicode-bidi: isolate;
 }
 .diagram .runway { opacity: .55; }
 .diagram .runway.is-active { color: var(--diag-active); opacity: 1; }
@@ -217,7 +250,7 @@ footer { max-width: 720px; margin: 0 auto; padding: 0 16px 40px; }
   border-radius: 999px; padding: 6px 12px; font-size: 13px; cursor: pointer; margin-inline-start: 8px;
 }
 
-@media (max-width: 420px) {
-  .config { grid-template-columns: 1fr; }
-  .rwy { font-size: 34px; }
+@media (max-width: 360px) {
+  .op { padding: 9px 10px 8px; }
+  .rwy { font-size: 26px; }
 }
