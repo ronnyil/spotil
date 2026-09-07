@@ -1,0 +1,84 @@
+name: Health check
+
+# Checks the live data path end to end and on a schedule, because the site
+# breaking is not self-announcing: the client falls back to the time-of-day
+# prediction and keeps looking plausible, so a silent outage can persist until
+# somebody happens to notice the amber label.
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  push:
+    paths:
+      - "data/config.json"
+      - "api/**"
+      - "shared/**"
+      - ".github/workflows/health.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the configured proxy
+        id: proxy
+        run: |
+          PROXY=$(python3 -c "import json; print(json.load(open('data/config.json')).get('adsbProxy',''))")
+          if [ -z "$PROXY" ]; then
+            echo "No adsbProxy configured; nothing to check."
+            exit 0
+          fi
+          PROXY="${PROXY%/}"
+          echo "GET $PROXY?lat=32.0094&lon=34.8828&radius=20"
+          rm -f /tmp/resp.json
+          code=$(curl -sS -o /tmp/resp.json -w '%{http_code}' \
+            "$PROXY?lat=32.0094&lon=34.8828&radius=20" || true)
+          echo "HTTP ${code:-000}"
+          echo "--- body ---"
+          head -c 2000 /tmp/resp.json 2>/dev/null || echo "(no body)"
+          echo
+          echo "------------"
+          echo "code=${code:-000}" >> "$GITHUB_OUTPUT"
+
+      - name: Check the deployment is serving at all
+        if: always()
+        continue-on-error: true
+        run: |
+          for u in https://spotil.vercel.app/ https://ronnyil.github.io/spotil/; do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' -m 20 "$u" || true)
+            printf '%-40s %s\n' "$u" "${code:-000}"
+          done
+
+      - name: Probe the upstreams directly
+        if: always()
+        continue-on-error: true
+        run: |
+          probe() {
+            code=$(curl -sS -m 15 -o /tmp/u.txt -w '%{http_code}' \
+              -H 'Accept: application/json' \
+              -H 'User-Agent: spotil/1.0 (+https://github.com/ronnyil/spotil)' \
+              "$2" || true)
+            printf '%-16s %s  ' "$1" "${code:-000}"
+            head -c 140 /tmp/u.txt 2>/dev/null | tr -d '\n'
+            echo
+            rm -f /tmp/u.txt
+          }
+          L=32.0094; O=34.8828; R=20
+          probe "adsb.lol"       "https://api.adsb.lol/v2/point/$L/$O/$R"
+          probe "adsb.fi"        "https://opendata.adsb.fi/api/v2/lat/$L/lon/$O/dist/$R"
+          probe "airplanes.live" "https://api.airplanes.live/v2/point/$L/$O/$R"
+
+      - name: Fail if the proxy is not healthy
+        if: always()
+        run: |
+          code="${{ steps.proxy.outputs.code }}"
+          if [ -n "$code" ] && [ "$code" != "200" ]; then
+            echo "::error::Proxy returned HTTP $code - see the body and probes above"
+            exit 1
+          fi
+          echo "Proxy healthy (HTTP ${code:-n/a})"
