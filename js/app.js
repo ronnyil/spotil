@@ -2,7 +2,6 @@ import { fetchAircraft } from "./adsb.js";
 import { RunwayTracker } from "./runway.js";
 import { resolveRunways, rankSpots, navLinks } from "./recommend.js";
 import { STRINGS, t } from "./i18n.js";
-import { renderDiagram } from "./diagram.js";
 
 const REFRESH_MS = 20000;
 const FETCH_RADIUS_NM = 20;
@@ -115,7 +114,6 @@ function render() {
   renderRecommendation();
   renderTraffic();
   renderStatus();
-  renderMap();
 }
 
 function renderConfig() {
@@ -308,33 +306,6 @@ function requestLocation() {
     () => {},
     { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
   );
-}
-
-function renderMap() {
-  const host = $("#diagram");
-  const r = state.resolved;
-  if (!host || !r) return;
-
-  // Show the spot for whichever operation the user is looking at, so the
-  // diagram and the recommendation below it always agree.
-  const op = state.operation;
-  const runway = r[op].runway;
-  const top = rankSpots(state.spots, state.airport, runway, op, {
-    from: state.userPosition,
-  })[0];
-
-  const { svg, legend } = renderDiagram({
-    airport: state.airport,
-    landingRunway: r.landing.runway,
-    takeoffRunway: r.takeoff.runway,
-    spot: top?.spot ?? null,
-    strings: STRINGS[state.lang],
-  });
-
-  const rows = legend
-    .map((item) => `<li class="lg-${item.kind}"><span class="key"></span>${item.text}</li>`)
-    .join("");
-  host.innerHTML = svg + (rows ? `<ul class="diagram-legend">${rows}</ul>` : "");
 }
 
 boot().catch((err) => {
