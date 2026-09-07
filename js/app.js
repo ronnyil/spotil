@@ -269,36 +269,47 @@ function spotCard(rec, primary, runway) {
   const name = spot.name[lang] || spot.name.en;
   const otherName = lang === "en" ? spot.name.he : spot.name.en;
 
+  // Label-and-value pairs rather than tag pills: these are readings, and they
+  // are quicker to scan when the values line up in one typeface.
+  const fact = (key, value, tone = "") =>
+    `<li${tone ? ` class="${tone}"` : ""}><span class="k">${key}</span><span class="v">${value}</span></li>`;
+  const pips = (n) =>
+    `<span class="pips">${Array.from({ length: 5 }, (_, i) =>
+      `<i class="${i < n ? "on" : ""}"></i>`).join("")}</span>`;
+
   const facts = [
-    `<li>${t(lang, "runway")} ${runway}</li>`,
-    `<li>${t(lang, "lookDirection")}: ${rec.lookCompass} (${Math.round(rec.lookBearing)}°)</li>`,
-    `<li class="${light.score > 0.55 ? "good" : light.score < 0.3 ? "bad" : ""}">${t(lang, "light")}: ${lightLabel}</li>`,
-    `<li>${t(lang, "quality")}: ${"★".repeat(rec.quality)}${"☆".repeat(5 - rec.quality)}</li>`,
+    fact(t(lang, "runway"), runway),
+    fact(t(lang, "lookDirection"), `${rec.lookCompass} ${Math.round(rec.lookBearing)}°`),
+    fact(t(lang, "light"), lightLabel,
+         light.score > 0.55 ? "good" : light.score < 0.3 ? "bad" : ""),
+    fact(t(lang, "quality"), pips(rec.quality)),
   ];
   if (rec.distanceNm !== null) {
-    facts.push(`<li>${Math.round(rec.distanceNm * 1.852)} ${t(lang, "km")} ${t(lang, "away")}</li>`);
+    facts.push(fact(t(lang, "away"), `${Math.round(rec.distanceNm * 1.852)} ${t(lang, "km")}`));
   }
   if (spot.facilities?.parking === false) {
-    facts.push(`<li class="bad">${lang === "en" ? "No parking" : "אין חניה"}</li>`);
+    facts.push(fact(lang === "en" ? "Parking" : "חניה", lang === "en" ? "none" : "אין", "bad"));
   } else if (spot.facilities?.parking) {
-    facts.push(`<li class="good">${lang === "en" ? "Parking" : "חניה"}</li>`);
+    facts.push(fact(lang === "en" ? "Parking" : "חניה", lang === "en" ? "yes" : "יש", "good"));
   }
-  if (spot.facilities?.food) facts.push(`<li>${lang === "en" ? "Food" : "אוכל"}</li>`);
+  if (spot.facilities?.food) {
+    facts.push(fact(lang === "en" ? "Food" : "אוכל", lang === "en" ? "yes" : "יש"));
+  }
 
   const details = [];
-  if (spot.warning) details.push(`<p class="detail warn">⚠ ${spot.warning[lang] || spot.warning.en}</p>`);
+  if (spot.warning) details.push(`<p class="detail warn">${spot.warning[lang] || spot.warning.en}</p>`);
   if (spot.directions) details.push(`<p class="detail">${spot.directions[lang] || spot.directions.en}</p>`);
   if (spot.notes) details.push(`<p class="detail">${spot.notes[lang] || spot.notes.en}</p>`);
 
   el.innerHTML = `
     ${primary ? `<p class="rank">${t(lang, "goHere")}</p>` : ""}
-    <h3>${name}</h3>
+    <h4>${name}</h4>
     <p class="he-name" dir="auto">${otherName || ""}</p>
     <ul class="facts">${facts.join("")}</ul>
     ${details.join("")}
-    ${spot.coordsApproximate ? `<p class="approx">📍 ${t(lang, "approxPin")}</p>` : ""}
+    ${spot.coordsApproximate ? `<p class="approx">${t(lang, "approxPin")}</p>` : ""}
     <div class="actions">
-      <a href="${links.waze}" target="_blank" rel="noopener">${t(lang, "waze")}</a>
+      <a href="${links.waze}" target="_blank" rel="noopener">${t(lang, "navigate")}</a>
       <a class="secondary" href="${links.google}" target="_blank" rel="noopener">${t(lang, "maps")}</a>
     </div>
   `;
@@ -324,7 +335,7 @@ function renderTraffic() {
     const li = document.createElement("li");
     li.innerHTML = `
       <span class="cs">${v.ac.callsign || v.ac.hex}</span>
-      <span class="op">${t(state.lang, v.operation)} ${v.runway}</span>
+      <span class="op-badge">${t(state.lang, v.operation)} ${v.runway}</span>
       <span class="meta">${v.ac.type || ""} ${Math.round(v.altAgl)} ft · ${v.distNm.toFixed(1)} nm</span>
     `;
     list.appendChild(li);
@@ -352,7 +363,7 @@ function renderStatus() {
   if (state.staleAge != null) {
     const mins = Math.floor(state.staleAge / 60);
     const readable = mins >= 1 ? `${mins} min` : `${state.staleAge}s`;
-    bits.push(`⚠ ${t(lang, "staleData")} ${readable}`);
+    bits.push(`${t(lang, "staleData")} ${readable}`);
   }
   el.textContent = bits.join(" · ");
 
