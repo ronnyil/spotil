@@ -3,6 +3,7 @@
 import { haversineNm, bearingTo, compassPoint, destinationPoint } from "./geo.js";
 import { lightQuality } from "./sun.js";
 import { runwayEnds } from "./runway.js";
+import { RECENT_WINDOW_MS } from "./persist.js";
 
 // Local hour at the airport, regardless of where the viewer's device is set.
 export function localHour(date, timeZone) {
@@ -25,18 +26,60 @@ export function patternPrediction(airport, date = new Date()) {
   };
 }
 
-// Live reading where we have one, the time-of-day pattern where we do not.
-// Never silently passes a guess off as an observation.
-export function resolveRunways(summary, airport, date = new Date(), minConfidence = 0.35) {
+// Resolves each operation in order of evidence: what is being observed now,
+// then what was last actually observed, then the time-of-day pattern. The
+// middle rung matters most at quiet times - a runway seen ten minutes ago is
+// far better evidence than the hour of the day, because configuration changes
+// a few times a day rather than a few times an hour.
+export function resolveRunways(
+  summary, airport, date = new Date(), minConfidence = 0.35, lastSeen = {}
+) {
   const guess = patternPrediction(airport, date);
-  const resolve = (live, fallback) =>
-    live.runway && live.confidence >= minConfidence
-      ? { runway: live.runway, confidence: live.confidence, basis: "observed", aircraft: live.aircraft, alternatives: live.alternatives }
-      : { runway: fallback, confidence: live.runway ? live.confidence : 0, basis: fallback ? "predicted" : "unknown", observedRunway: live.runway, aircraft: live.aircraft ?? [], alternatives: live.alternatives ?? [] };
+  const now = date.getTime();
+
+  const resolve = (live, fallback, remembered) => {
+    if (live.runway && live.confidence >= minConfidence) {
+      // Strong evidence. Whether it counts as live depends on whether any of
+      // the aircraft behind it are still flying.
+      if (live.liveNow) {
+        return {
+          runway: live.runway, confidence: live.confidence, basis: "observed",
+          aircraft: live.aircraft, alternatives: live.alternatives,
+        };
+      }
+      return {
+        runway: live.runway, confidence: live.confidence, basis: "recent",
+        ageMs: Math.max(0, now - (live.latestAt ?? now)),
+        aircraft: live.aircraft, alternatives: live.alternatives,
+      };
+    }
+
+    if (remembered?.runway && Number.isFinite(remembered.at)
+        && now - remembered.at <= RECENT_WINDOW_MS) {
+      return {
+        runway: remembered.runway,
+        confidence: remembered.confidence ?? 0,
+        basis: "recent",
+        ageMs: now - remembered.at,
+        aircraft: live.aircraft ?? [],
+        alternatives: live.alternatives ?? [],
+        observedRunway: live.runway,
+      };
+    }
+
+    return {
+      runway: fallback,
+      confidence: live.runway ? live.confidence : 0,
+      basis: fallback ? "predicted" : "unknown",
+      observedRunway: live.runway,
+      aircraft: live.aircraft ?? [],
+      alternatives: live.alternatives ?? [],
+    };
+  };
 
   return {
-    landing: resolve(summary.landing, guess.landing),
-    takeoff: resolve(summary.takeoff, guess.takeoff),
+    landing: resolve(summary.landing, guess.landing, lastSeen.landing),
+    takeoff: resolve(summary.takeoff, guess.takeoff, lastSeen.takeoff),
     patternLabel: guess.label,
     trackedAircraft: summary.trackedAircraft,
     updatedAt: summary.updatedAt,

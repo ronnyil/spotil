@@ -1,8 +1,9 @@
 import { fetchAircraft } from "./adsb.js";
 import { RunwayTracker } from "./runway.js";
 import { resolveRunways, rankSpots, navLinks } from "./recommend.js";
-import { STRINGS, t } from "./i18n.js";
+import { STRINGS, t, formatAge } from "./i18n.js";
 import { decorate } from "./diagram.js";
+import * as history from "./persist.js";
 
 const REFRESH_MS = 20000;
 const FETCH_RADIUS_NM = 20;
@@ -18,6 +19,8 @@ const state = {
   lastFetch: null,
   source: null,
   error: null,
+  lastSeen: {},
+  currentlyClassified: [],
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -41,6 +44,11 @@ async function boot() {
   state.proxy = config.adsbProxy || "";
   if (diagramSvg) $("#diagram").innerHTML = diagramSvg;
   state.tracker = new RunwayTracker(airport);
+
+  // Restore what earlier visits observed, so a reload does not start blind.
+  const stored = history.load();
+  state.lastSeen = stored.lastSeen;
+  state.tracker.restore(stored.votes);
 
   applyLanguage();
   wireControls();
@@ -99,7 +107,9 @@ async function refresh() {
     // snapshot would keep refreshing each vote's timestamp, so stale data
     // would read as live and never decay.
     if (res.payloadTime !== state.lastPayloadTime) {
-      state.tracker.observe(res.aircraft);
+      // Keep this poll's classifications separately: the traffic list should
+      // show what is in the air now, not remembered votes from earlier.
+      state.currentlyClassified = state.tracker.observe(res.aircraft);
       state.lastPayloadTime = res.payloadTime;
     }
     state.liveAircraft = res.aircraft;
@@ -111,7 +121,23 @@ async function refresh() {
     state.staleAge = null;
   }
   state.lastFetch = Date.now();
-  state.resolved = resolveRunways(state.tracker.summary(), state.airport);
+  const summary = state.tracker.summary();
+  state.resolved = resolveRunways(
+    summary, state.airport, new Date(), 0.35, state.lastSeen
+  );
+
+  // Record a genuinely live reading so a later visit, or a reload once the
+  // traffic has gone, can report what was actually seen rather than guessing.
+  for (const op of ["landing", "takeoff"]) {
+    const r = state.resolved[op];
+    if (r.basis === "observed") {
+      state.lastSeen[op] = {
+        runway: r.runway, confidence: r.confidence,
+        at: Date.now(), aircraft: r.aircraft?.length ?? 0,
+      };
+    }
+  }
+  history.save({ votes: state.tracker.export(), lastSeen: state.lastSeen });
   render();
 }
 
@@ -171,10 +197,13 @@ function renderConfig() {
     }
 
     basisEl.className = `basis ${data.basis}`;
-    const basisText = t(state.lang, data.basis === "observed" ? "observedShort"
-      : data.basis === "predicted" ? "predictedShort" : "unknownShort");
+    const basisText = data.basis === "observed" ? t(state.lang, "observedShort")
+      : data.basis === "recent" ? formatAge(state.lang, data.ageMs)
+      : data.basis === "predicted" ? t(state.lang, "predictedShort")
+      : t(state.lang, "unknownShort");
     // A live reading from one aircraft and one from eight are both "live", so
-    // show the count rather than letting the label imply equal weight.
+    // show the count rather than letting the label imply equal weight. A
+    // remembered reading shows its age instead, which is the thing to judge.
     const n = data.basis === "observed" ? (data.aircraft?.length ?? 0) : 0;
     const suffix = n ? ` · ${n} ${t(state.lang, n === 1 ? "aircraftOne" : "aircraft")}` : "";
     basisEl.innerHTML = `<span class="dot"></span>${basisText}${suffix}`;
@@ -184,19 +213,26 @@ function renderConfig() {
     const pct = data.basis === "observed" ? Math.round(data.confidence * 100) : 0;
     meterEl.style.width = `${pct}%`;
     meterEl.parentElement.classList.toggle("predicted-meter", data.basis !== "observed");
+    meterEl.parentElement.classList.toggle("recent-meter", data.basis === "recent");
   }
 
   const note = $("#modeNote");
-  const predicted = r.landing.basis !== "observed" || r.takeoff.basis !== "observed";
+  const bases = [r.landing.basis, r.takeoff.basis];
+  const show = (key) => { note.textContent = t(state.lang, key); note.hidden = false; };
+
+  // The note explains the weakest reading, but only when it is actually the
+  // whole story. With one operation live and the other predicted, the badges
+  // on each side already say so, and a note claiming traffic is too thin
+  // contradicts the live figure sitting next to it.
   if (state.error) {
     note.innerHTML = `${t(state.lang, "error")} <a href="debug.html">${t(state.lang, "diagnose")} \u2192</a>`;
     note.hidden = false;
-  } else if (r.landing.basis === "unknown") {
-    note.textContent = t(state.lang, "nightNote");
-    note.hidden = false;
-  } else if (predicted) {
-    note.textContent = t(state.lang, "predictedNote");
-    note.hidden = false;
+  } else if (bases.includes("recent")) {
+    show("recentNote");
+  } else if (bases.every((b) => b === "unknown")) {
+    show("nightNote");
+  } else if (bases.every((b) => b === "predicted" || b === "unknown")) {
+    show("predictedNote");
   } else {
     note.hidden = true;
   }
@@ -275,8 +311,8 @@ function renderTraffic() {
   list.innerHTML = "";
   if (!r) return;
 
-  const seen = [...(r.landing.aircraft || []), ...(r.takeoff.aircraft || [])]
-    .sort((a, b) => b.at - a.at)
+  const seen = [...(state.currentlyClassified || [])]
+    .sort((a, b) => a.distNm - b.distNm)
     .slice(0, 8);
 
   if (seen.length === 0) {

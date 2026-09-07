@@ -15,6 +15,8 @@ export const STRINGS = {
     offMap: "(beyond the frame)",
     observed: "live from traffic",
     observedShort: "live",
+    recent: "last actually observed",
+    recentNote: "Traffic has gone quiet. Showing the runway last actually observed rather than a guess from the time of day.",
     predictedShort: "predicted",
     unknownShort: "no traffic",
     predicted: "predicted from time of day",
@@ -77,6 +79,8 @@ export const STRINGS = {
     offMap: "(מחוץ לתרשים)",
     observed: "לפי תנועה בזמן אמת",
     observedShort: "בזמן אמת",
+    recent: "נצפה לאחרונה",
+    recentNote: "התנועה דלילה. מוצג המסלול שנצפה בפועל לאחרונה, ולא ניחוש לפי שעות היום.",
     predictedShort: "תחזית",
     unknownShort: "אין תנועה",
     predicted: "תחזית לפי שעות היום",
@@ -127,4 +131,14 @@ export const STRINGS = {
 
 export function t(lang, key) {
   return STRINGS[lang]?.[key] ?? STRINGS.en[key] ?? key;
+}
+
+// "seen 6 min ago" reads differently in Hebrew, so build it per language
+// rather than gluing fragments together.
+export function formatAge(lang, ms) {
+  const minutes = Math.max(1, Math.round(ms / 60000));
+  const label = minutes >= 60
+    ? `${Math.round(minutes / 60)} ${lang === "he" ? "שע׳" : "h"}`
+    : `${minutes} ${lang === "he" ? "דק׳" : "min"}`;
+  return lang === "he" ? `לפני ${label}` : `${label} ago`;
 }
