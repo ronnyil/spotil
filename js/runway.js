@@ -162,10 +162,15 @@ export class RunwayTracker {
     this.ends = runwayEnds(airport);
     this.limits = limits;
     this.votes = new Map(); // hex -> { operation, runway, confidence, at, ac }
+    // Which aircraft were classified in the most recent poll. A reading backed
+    // only by aircraft that have since landed is real evidence, but it is not
+    // "live", and saying so would be a small lie told every quiet evening.
+    this.currentHexes = new Set();
   }
 
   observe(aircraft, now = Date.now()) {
     const seen = [];
+    this.currentHexes = new Set();
     for (const ac of aircraft) {
       const verdict = classifyAircraft(ac, this.airport, this.ends);
       if (!verdict) continue;
@@ -179,9 +184,41 @@ export class RunwayTracker {
         this.votes.set(ac.hex, { ...verdict, at: now, ac });
       }
       seen.push({ ...verdict, ac });
+      this.currentHexes.add(ac.hex);
     }
     this.prune(now);
     return seen;
+  }
+
+  // A trimmed form of each vote, small enough to store and carrying only what
+  // a restored session needs: the verdict, when it was made, and enough of the
+  // aircraft to name it.
+  export(now = Date.now()) {
+    this.prune(now);
+    return [...this.votes.entries()].map(([hex, v]) => ({
+      hex,
+      operation: v.operation,
+      runway: v.runway,
+      pair: v.pair,
+      confidence: v.confidence,
+      distNm: v.distNm,
+      altAgl: v.altAgl,
+      at: v.at,
+      ac: { hex: v.ac?.hex ?? hex, callsign: v.ac?.callsign ?? null, type: v.ac?.type ?? null },
+    }));
+  }
+
+  // Restores stored votes, ignoring anything the tracker would already have
+  // expired. A vote seen again in the current session overwrites the stored
+  // one on its own merits.
+  restore(votes, now = Date.now()) {
+    for (const v of votes ?? []) {
+      if (!v?.hex || !Number.isFinite(v.at)) continue;
+      if (now - v.at > this.limits.voteMaxAgeMs) continue;
+      this.votes.set(v.hex, v);
+    }
+    this.prune(now);
+    return this.votes.size;
   }
 
   prune(now = Date.now()) {
@@ -198,27 +235,27 @@ export class RunwayTracker {
     const tally = { landing: new Map(), takeoff: new Map() };
     const contributors = { landing: [], takeoff: [] };
 
-    for (const v of this.votes.values()) {
+    for (const [hex, v] of this.votes.entries()) {
       const age = now - v.at;
       const decay = Math.pow(0.5, age / this.limits.voteHalfLifeMs);
       const weight = v.confidence * decay;
       const bucket = tally[v.operation];
       bucket.set(v.runway, (bucket.get(v.runway) || 0) + weight);
-      contributors[v.operation].push({ ...v, weight });
+      contributors[v.operation].push({ ...v, hex, weight });
     }
 
     return {
-      landing: pick(tally.landing, contributors.landing, this.limits),
-      takeoff: pick(tally.takeoff, contributors.takeoff, this.limits),
+      landing: pick(tally.landing, contributors.landing, this.limits, this.currentHexes),
+      takeoff: pick(tally.takeoff, contributors.takeoff, this.limits, this.currentHexes),
       trackedAircraft: this.votes.size,
       updatedAt: now,
     };
   }
 }
 
-function pick(tally, contributors, limits) {
+function pick(tally, contributors, limits, currentHexes = new Set()) {
   if (tally.size === 0) {
-    return { runway: null, confidence: 0, total: 0, aircraft: [], alternatives: [] };
+    return { runway: null, confidence: 0, total: 0, aircraft: [], alternatives: [], liveNow: false, latestAt: null };
   }
 
   const ranked = [...tally.entries()].sort((a, b) => b[1] - a[1]);
@@ -230,13 +267,19 @@ function pick(tally, contributors, limits) {
   const dominance = weight / total;
   const evidence = Math.min(1, total / limits.saturationWeight);
 
+  const backing = contributors
+    .filter((c) => c.runway === runway)
+    .sort((a, b) => b.at - a.at);
+
   return {
     runway,
     confidence: dominance * evidence,
     total,
-    aircraft: contributors
-      .filter((c) => c.runway === runway)
-      .sort((a, b) => b.at - a.at),
+    aircraft: backing,
+    // True only if at least one aircraft behind this reading was in the air at
+    // the last poll.
+    liveNow: backing.some((c) => currentHexes.has(c.hex)),
+    latestAt: backing.length ? backing[0].at : null,
     alternatives: ranked.slice(1).map(([r, w]) => ({ runway: r, share: w / total })),
   };
 }

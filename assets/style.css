@@ -115,6 +115,8 @@ main { max-width: 720px; margin: 0 auto; padding: 0 16px 32px; }
 }
 .basis.observed .dot { background: var(--good); }
 .basis.predicted .dot { background: var(--warn); }
+.basis.recent .dot { background: var(--accent); }
+.recent-meter span { background: var(--accent); }
 
 .meter { display: block; height: 3px; margin-top: 5px; background: var(--line); border-radius: 999px; overflow: hidden; }
 .meter span { display: block; height: 100%; width: 0; background: var(--good); transition: width .4s ease; }
